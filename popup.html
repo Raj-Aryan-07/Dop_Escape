@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dopamine De-escalator</title>
+    <link rel="stylesheet" href="popup-styles.css">
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🧠 Dopamine De-escalator</h1>
+            <p class="subtitle">Reclaim your attention</p>
+        </div>
+
+        <div class="status-section">
+            <div class="status-item">
+                <span class="label">Status:</span>
+                <span class="status-badge">Active</span>
+            </div>
+            <div class="status-item">
+                <span class="label">Session:</span>
+                <span id="sessionTime">00:00:00</span>
+            </div>
+            <div class="status-item">
+                <span class="label">Fatigue:</span>
+                <span id="fatigueLevel">0%</span>
+            </div>
+        </div>
+
+        <div class="dopamine-section">
+            <h3>Dopamine Score</h3>
+            <div class="score-display">
+                <div><span class="score-label">Original</span><span class="score-value" id="originalScore">--</span></div>
+                <div class="arrow">→</div>
+                <div><span class="score-label">Modified</span><span class="score-value" id="currentScore">--</span></div>
+            </div>
+        </div>
+
+        <div class="features-section">
+            <h3>Features</h3>
+            <div class="feature-toggle">
+                <label><input type="checkbox" id="rewriteToggle" checked> AI Rewriter</label>
+            </div>
+            <div class="feature-toggle">
+                <label><input type="checkbox" id="grayscaleToggle"> Grayscale</label>
+            </div>
+            <div class="feature-toggle">
+                <label><input type="checkbox" id="dopameterToggle" checked> Dopameter</label>
+            </div>
+            <div class="feature-toggle">
+                <label><input type="checkbox" id="fatigueToggle" checked> Fatigue Detection</label>
+            </div>
+        </div>
+
+        <div class="export-section">
+            <h3>📊 Export Data</h3>
+            <div class="export-buttons">
+                <button class="export-btn" id="exportJSON">📄 JSON</button>
+                <button class="export-btn" id="exportCSV">📋 CSV</button>
+                <button class="export-btn" id="exportPDF">📕 PDF</button>
+                <button class="export-btn" id="exportHTML">🌐 HTML</button>
+                <button class="export-btn" id="exportXML">⚙️ XML</button>
+                <button class="export-btn" id="exportTXT">📝 TXT</button>
+            </div>
+            <div class="export-options">
+                <label><input type="checkbox" id="includeTimestamps" checked> Timestamps</label>
+                <label><input type="checkbox" id="includeMetrics" checked> Metrics</label>
+            </div>
+        </div>
+
+        <div class="stats-section">
+            <h3>📈 Today's Stats</h3>
+            <div class="stats-grid">
+                <div class="stat-card"><span class="stat-label">Posts Rewritten</span><span class="stat-value" id="postsRewritten">0</span></div>
+                <div class="stat-card"><span class="stat-label">Dopamine ↓</span><span class="stat-value" id="avgDopamineReduction">0%</span></div>
+                <div class="stat-card"><span class="stat-label">Fatigue</span><span class="stat-value" id="fatigueStats">0%</span></div>
+            </div>
+        </div>
+
+        <div class="action-buttons">
+            <button id="openDashboard" class="btn-primary">📊 Dashboard</button>
+            <button id="resetStats" class="btn-secondary">🔄 Reset</button>
+        </div>
+
+        <div class="footer">
+            <p>v1.0.0 | Made with ❤️ for digital wellbeing</p>
+        </div>
+    </div>
+    <script src="popup.js"></script>
+</body>
+</html>

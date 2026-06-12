@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Dashboard</title>
+<style>
+body{font-family:sans-serif;background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);padding:40px;margin:0}
+.dashboard{max-width:1200px;margin:0 auto}
+.header{text-align:center;color:white;margin-bottom:40px}
+h1{font-size:48px;margin:0}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:24px}
+.card{background:white;border-radius:12px;padding:30px;box-shadow:0 10px 30px rgba(0,0,0,0.2)}
+.card h2{font-size:14px;color:#999;margin:0 0 16px 0}
+.value{font-size:48px;font-weight:bold;color:#667eea}
+.unit{font-size:14px;color:#666}
+</style>
+</head>
+<body>
+<div class="dashboard">
+<div class="header"><h1>🧠 Dashboard</h1></div>
+<div class="grid">
+<div class="card"><h2>Posts Rewritten</h2><div class="value" id="posts">0</div><div class="unit">AI-modified</div></div>
+<div class="card"><h2>Dopamine ↓</h2><div class="value" id="dopamine">0%</div><div class="unit">Reduction</div></div>
+<div class="card"><h2>Session</h2><div class="value" id="session">0:00</div><div class="unit">Duration</div></div>
+<div class="card"><h2>Fatigue</h2><div class="value" id="fatigue">0%</div><div class="unit">Level</div></div>
+</div>
+</div>
+<script>
+function u(){chrome.storage.sync.get(['sessionData','sessionStartTime'],(d)=>{
+if(d.sessionData){document.getElementById('posts').textContent=d.sessionData.postsRewritten||0;document.getElementById('dopamine').textContent=(d.sessionData.avgDopamineReduction||0)+'%';document.getElementById('fatigue').textContent=(d.sessionData.fatigueLevel||0)+'%'}
+if(d.sessionStartTime){const e=Math.floor((Date.now()-d.sessionStartTime)/1000);document.getElementById('session').textContent=Math.floor(e/3600)+':'+String(Math.floor(e%3600/60)).padStart(2,'0')}
+})}u();setInterval(u,5000)
+</script>
+</body>
+</html>

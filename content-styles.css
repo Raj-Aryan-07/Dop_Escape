@@ -1,0 +1,2 @@
+[data-rewritten="true"] { animation: contentUpdate 0.5s ease; }
+@keyframes contentUpdate { 0% { background-color: rgba(102, 126, 234, 0.2); } 100% { background-color: transparent; } }
