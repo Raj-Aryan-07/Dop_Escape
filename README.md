@@ -47,4 +47,4 @@ AI-powered browser extension to reduce digital addiction by rewriting addictive 
 ✅ No tracking
 ✅ Open source
 
-## v1.0.0 | Made with ❤️
+## v1.0.0 | Made by Raj-Aryan-07 with ❤️
