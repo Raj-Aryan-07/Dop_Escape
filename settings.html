@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>DDE Settings — Ollama Configuration</title>
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box}
+    body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#0f1b2d;color:#f8fafc;min-height:100vh;display:flex;align-items:flex-start;justify-content:center;padding:40px 20px}
+    .page{width:100%;max-width:640px}
+    h1{font-size:24px;color:#0d9488;margin-bottom:4px}
+    .sub{color:#94a3b8;font-size:13px;margin-bottom:32px}
+    .card{background:#1e3154;border:1px solid #2d4a7a;border-radius:12px;padding:24px;margin-bottom:20px}
+    .card h2{font-size:12px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.07em;margin-bottom:18px}
+    .field{margin-bottom:16px}
+    label{display:block;font-size:12px;color:#94a3b8;margin-bottom:6px;font-weight:600}
+    input[type=text],input[type=url],select{width:100%;background:#0f1b2d;border:1px solid #2d4a7a;color:#f8fafc;border-radius:8px;padding:10px 12px;font-size:13px;outline:none;transition:border .2s}
+    input[type=text]:focus,input[type=url]:focus,select:focus{border-color:#0d9488}
+    select option{background:#0f1b2d}
+    .toggle-field{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid #2d4a7a}
+    .toggle-field:last-child{border-bottom:none}
+    .toggle-field span{font-size:13px;color:#e2e8f0}
+    .toggle-field .hint{font-size:11px;color:#64748b;margin-top:2px}
+    .switch{position:relative;width:40px;height:22px;flex-shrink:0}
+    .switch input{display:none}
+    .switch-track{position:absolute;inset:0;background:#334155;border-radius:99px;cursor:pointer;transition:background .2s}
+    .switch-thumb{position:absolute;width:16px;height:16px;background:#94a3b8;border-radius:50%;top:3px;left:3px;transition:all .2s;cursor:pointer}
+    .switch input:checked+.switch-track{background:#0d9488}
+    .switch input:checked~.switch-thumb{left:21px;background:#fff}
+
+    /* Ollama status panel */
+    #statusPanel{background:#0f1b2d;border:1px solid #2d4a7a;border-radius:8px;padding:14px;margin-top:4px;display:none}
+    #statusPanel.show{display:block}
+    .status-row{display:flex;justify-content:space-between;align-items:center;font-size:12px;margin-bottom:8px}
+    .status-row:last-child{margin-bottom:0}
+    .ok{color:#22c55e;font-weight:700} .err{color:#ef4444;font-weight:700} .warn{color:#f59e0b;font-weight:700}
+    .model-list{margin-top:8px;display:flex;flex-wrap:wrap;gap:6px}
+    .model-tag{background:#1e3154;border:1px solid #2d4a7a;color:#94a3b8;font-size:10px;padding:3px 8px;border-radius:99px;cursor:pointer}
+    .model-tag:hover,.model-tag.active{background:#0d9488;color:#fff;border-color:#0d9488}
+
+    .btn-row{display:flex;gap:10px;margin-top:20px}
+    .btn{padding:11px 20px;border-radius:8px;border:none;font-size:13px;font-weight:700;cursor:pointer;transition:opacity .2s}
+    .btn:hover{opacity:.88}
+    .btn-teal{background:linear-gradient(135deg,#0d9488,#2563eb);color:#fff}
+    .btn-ghost{background:#1e3154;color:#94a3b8;border:1px solid #2d4a7a}
+    .btn-sm{padding:7px 14px;font-size:11px;border-radius:7px;border:none;cursor:pointer;font-weight:600;transition:all .2s}
+    .btn-check{background:#0d9488;color:#fff}
+    .btn-check:hover{background:#0f766e}
+    .btn-pull{background:#1e3154;border:1px solid #0d9488;color:#0d9488}
+    .btn-pull:hover{background:#0d9488;color:#fff}
+
+    .info-box{background:#052e16;border:1px solid #166534;border-radius:8px;padding:12px 14px;margin-top:4px}
+    .info-box p{font-size:12px;color:#86efac;line-height:1.6}
+    .info-box code{background:#0f1b2d;color:#0d9488;padding:1px 5px;border-radius:4px;font-size:11px}
+    .warn-box{background:#451a03;border:1px solid #92400e;border-radius:8px;padding:12px 14px;margin-top:4px}
+    .warn-box p{font-size:12px;color:#fcd34d;line-height:1.6}
+
+    .range-row{display:flex;align-items:center;gap:12px}
+    input[type=range]{flex:1;accent-color:#0d9488}
+    .range-val{min-width:36px;text-align:right;color:#0d9488;font-weight:700;font-size:13px}
+
+    .saved-toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#0d9488;color:#fff;padding:10px 24px;border-radius:8px;font-size:12px;font-weight:700;opacity:0;transition:opacity .3s;pointer-events:none}
+    .saved-toast.show{opacity:1}
+
+    hr{border:none;border-top:1px solid #2d4a7a;margin:16px 0}
+  </style>
+</head>
+<body>
+<div class="page">
+  <h1>⬡ Settings</h1>
+  <p class="sub">Configure AI engine, thresholds, and intervention behaviour</p>
+
+  <!-- OLLAMA SECTION -->
+  <div class="card">
+    <h2>🤖 Ollama AI Engine</h2>
+
+    <div class="info-box" style="margin-bottom:16px">
+      <p>Ollama runs AI models <strong>100% locally</strong> on your machine — no internet, no API keys, no cost per rewrite.<br>
+      Install: <code>curl -fsSL https://ollama.com/install.sh | sh</code> then <code>ollama run llama3.2</code></p>
+    </div>
+
+    <div class="toggle-field">
+      <div><span>Enable Ollama AI</span><div class="hint">Use local LLM for smarter rewrites</div></div>
+      <label class="switch">
+        <input type="checkbox" id="ollamaEnabled">
+        <div class="switch-track"></div><div class="switch-thumb"></div>
+      </label>
+    </div>
+
+    <div id="ollamaFields" style="margin-top:16px;display:none">
+      <div class="field">
+        <label>Ollama Server URL</label>
+        <input type="url" id="ollamaUrl" placeholder="http://localhost:11434" value="http://localhost:11434">
+      </div>
+      <div class="field">
+        <label>Model</label>
+        <div style="display:flex;gap:8px">
+          <input type="text" id="ollamaModel" placeholder="llama3.2" value="llama3.2" style="flex:1">
+          <button class="btn-sm btn-check" id="btnCheck">Check</button>
+        </div>
+        <div id="statusPanel">
+          <div class="status-row"><span>Server</span><span id="srvStatus">—</span></div>
+          <div class="status-row"><span>Model available</span><span id="modelStatus">—</span></div>
+          <div id="modelListWrap" style="display:none">
+            <hr>
+            <div style="font-size:11px;color:#64748b;margin-bottom:6px">Installed models (click to select):</div>
+            <div class="model-list" id="modelList"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="warn-box">
+        <p>⚠️ Browser security blocks requests to <code>localhost</code> from extension pages by default.<br>
+        Start Ollama with: <code>OLLAMA_ORIGINS="chrome-extension://*" ollama serve</code><br>
+        Or add to your shell config: <code>export OLLAMA_ORIGINS="chrome-extension://*"</code></p>
+      </div>
+
+      <div style="margin-top:14px;display:flex;gap:8px">
+        <button class="btn-sm btn-pull" id="btnPull">⬇ Pull model</button>
+        <span id="pullStatus" style="font-size:11px;color:#94a3b8;align-self:center"></span>
+      </div>
+    </div>
+  </div>
+
+  <!-- INTERVENTION THRESHOLDS -->
+  <div class="card">
+    <h2>⏱ Intervention Thresholds</h2>
+    <div class="field">
+      <label>Awareness phase starts after <span class="range-val" id="warnVal">10</span> minutes</label>
+      <div class="range-row">
+        <input type="range" id="threshWarn" min="5" max="60" value="10">
+      </div>
+    </div>
+    <div class="field">
+      <label>Friction phase starts after <span class="range-val" id="frictionVal">20</span> minutes</label>
+      <div class="range-row">
+        <input type="range" id="threshFriction" min="10" max="90" value="20">
+      </div>
+    </div>
+    <div class="field">
+      <label>Full intervention after <span class="range-val" id="fullVal">30</span> minutes</label>
+      <div class="range-row">
+        <input type="range" id="threshFull" min="15" max="120" value="30">
+      </div>
+    </div>
+    <div class="field">
+      <label>Scroll friction strength <span class="range-val" id="frictionStrVal">40</span>%</label>
+      <div class="range-row">
+        <input type="range" id="frictionStrength" min="10" max="70" value="40">
+      </div>
+    </div>
+    <div class="field">
+      <label>Rewrite posts scoring above <span class="range-val" id="scoreThreshVal">45</span>/100</label>
+      <div class="range-row">
+        <input type="range" id="scoreThreshold" min="20" max="80" value="45">
+      </div>
+    </div>
+  </div>
+
+  <!-- SAVE -->
+  <div class="btn-row">
+    <button class="btn btn-teal" id="btnSave">💾 Save Settings</button>
+    <button class="btn btn-ghost" id="btnClose">Close</button>
+  </div>
+</div>
+
+<div class="saved-toast" id="savedToast">✅ Settings saved</div>
+
+<script>
+const $ = id => document.getElementById(id);
+
+// ── Ranges ────────────────────────────────────────────────
+[["threshWarn","warnVal"],["threshFriction","frictionVal"],["threshFull","fullVal"],
+ ["frictionStrength","frictionStrVal"],["scoreThreshold","scoreThreshVal"]].forEach(([inp,lbl]) => {
+  const el = $(inp); if (!el) return;
+  el.addEventListener("input", () => $(lbl).textContent = el.value);
+});
+
+// ── Ollama toggle ─────────────────────────────────────────
+$("ollamaEnabled").addEventListener("change", e => {
+  $("ollamaFields").style.display = e.target.checked ? "block" : "none";
+});
+
+// ── Check Ollama ──────────────────────────────────────────
+$("btnCheck").addEventListener("click", async () => {
+  const url = $("ollamaUrl").value.trim();
+  const model = $("ollamaModel").value.trim();
+  $("btnCheck").textContent = "Checking…";
+  $("btnCheck").disabled = true;
+  $("statusPanel").classList.add("show");
+  $("srvStatus").textContent = "…"; $("srvStatus").className = "";
+  $("modelStatus").textContent = "…"; $("modelStatus").className = "";
+
+  chrome.runtime.sendMessage({ action: "checkOllama", url, model }, res => {
+    $("btnCheck").textContent = "Check"; $("btnCheck").disabled = false;
+    if (res && res.ok) {
+      $("srvStatus").textContent = "✓ Running"; $("srvStatus").className = "ok";
+      $("modelStatus").textContent = res.modelAvailable ? "✓ Available" : "⚠ Not installed";
+      $("modelStatus").className = res.modelAvailable ? "ok" : "warn";
+      if (res.models && res.models.length) {
+        $("modelListWrap").style.display = "block";
+        const list = $("modelList");
+        list.innerHTML = "";
+        res.models.forEach(m => {
+          const tag = document.createElement("span");
+          tag.className = "model-tag" + (m.startsWith(model.split(":")[0]) ? " active" : "");
+          tag.textContent = m;
+          tag.onclick = () => { $("ollamaModel").value = m.split(":")[0]; };
+          list.appendChild(tag);
+        });
+      }
+    } else {
+      $("srvStatus").textContent = "✗ Not running"; $("srvStatus").className = "err";
+      $("modelStatus").textContent = "—"; $("modelStatus").className = "";
+    }
+  });
+});
+
+// ── Pull model ────────────────────────────────────────────
+$("btnPull").addEventListener("click", () => {
+  const url = $("ollamaUrl").value.trim();
+  const model = $("ollamaModel").value.trim();
+  if (!model) return;
+  $("pullStatus").textContent = `Pulling ${model}… (may take minutes)`;
+  $("btnPull").disabled = true;
+  chrome.runtime.sendMessage({ action: "pullOllamaModel", url, model }, res => {
+    $("btnPull").disabled = false;
+    $("pullStatus").textContent = res && res.ok ? `✓ ${model} pulled!` : `✗ ${res?.error || "Failed"}`;
+  });
+});
+
+// ── Load saved settings ───────────────────────────────────
+chrome.storage.sync.get(["settings"], data => {
+  const s = data.settings || {};
+  if (s.ollamaEnabled) { $("ollamaEnabled").checked = true; $("ollamaFields").style.display = "block"; }
+  if (s.ollamaUrl)   $("ollamaUrl").value = s.ollamaUrl;
+  if (s.ollamaModel) $("ollamaModel").value = s.ollamaModel;
+  if (s.interventionThreshold) {
+    $("threshFull").value = s.interventionThreshold;
+    $("fullVal").textContent = s.interventionThreshold;
+  }
+  if (s.thresholdWarn)     { $("threshWarn").value = s.thresholdWarn; $("warnVal").textContent = s.thresholdWarn; }
+  if (s.thresholdFriction) { $("threshFriction").value = s.thresholdFriction; $("frictionVal").textContent = s.thresholdFriction; }
+  if (s.frictionStrength)  { $("frictionStrength").value = s.frictionStrength; $("frictionStrVal").textContent = s.frictionStrength; }
+  if (s.scoreThreshold)    { $("scoreThreshold").value = s.scoreThreshold; $("scoreThreshVal").textContent = s.scoreThreshold; }
+});
+
+// ── Save ──────────────────────────────────────────────────
+$("btnSave").addEventListener("click", () => {
+  const settings = {
+    ollamaEnabled:       $("ollamaEnabled").checked,
+    ollamaUrl:           $("ollamaUrl").value.trim(),
+    ollamaModel:         $("ollamaModel").value.trim(),
+    interventionThreshold: parseInt($("threshFull").value),
+    thresholdWarn:       parseInt($("threshWarn").value),
+    thresholdFriction:   parseInt($("threshFriction").value),
+    frictionStrength:    parseInt($("frictionStrength").value),
+    scoreThreshold:      parseInt($("scoreThreshold").value),
+  };
+  chrome.storage.sync.set({ settings }, () => {
+    const t = $("savedToast"); t.classList.add("show");
+    setTimeout(() => t.classList.remove("show"), 2200);
+  });
+});
+
+$("btnClose").addEventListener("click", () => window.close());
+</script>
+</body>
+</html>

@@ -1,92 +1,120 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dopamine De-escalator</title>
-    <link rel="stylesheet" href="popup-styles.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dopamine De-escalator</title>
+  <link rel="stylesheet" href="popup-styles.css">
 </head>
 <body>
-    <div class="container">
-        <div class="header">
-            <h1>🧠 Dopamine De-escalator</h1>
-            <p class="subtitle">Reclaim your attention</p>
-        </div>
+<div class="container">
 
-        <div class="status-section">
-            <div class="status-item">
-                <span class="label">Status:</span>
-                <span class="status-badge">Active</span>
-            </div>
-            <div class="status-item">
-                <span class="label">Session:</span>
-                <span id="sessionTime">00:00:00</span>
-            </div>
-            <div class="status-item">
-                <span class="label">Fatigue:</span>
-                <span id="fatigueLevel">0%</span>
-            </div>
-        </div>
-
-        <div class="dopamine-section">
-            <h3>Dopamine Score</h3>
-            <div class="score-display">
-                <div><span class="score-label">Original</span><span class="score-value" id="originalScore">--</span></div>
-                <div class="arrow">→</div>
-                <div><span class="score-label">Modified</span><span class="score-value" id="currentScore">--</span></div>
-            </div>
-        </div>
-
-        <div class="features-section">
-            <h3>Features</h3>
-            <div class="feature-toggle">
-                <label><input type="checkbox" id="rewriteToggle" checked> AI Rewriter</label>
-            </div>
-            <div class="feature-toggle">
-                <label><input type="checkbox" id="grayscaleToggle"> Grayscale</label>
-            </div>
-            <div class="feature-toggle">
-                <label><input type="checkbox" id="dopameterToggle" checked> Dopameter</label>
-            </div>
-            <div class="feature-toggle">
-                <label><input type="checkbox" id="fatigueToggle" checked> Fatigue Detection</label>
-            </div>
-        </div>
-
-        <div class="export-section">
-            <h3>📊 Export Data</h3>
-            <div class="export-buttons">
-                <button class="export-btn" id="exportJSON">📄 JSON</button>
-                <button class="export-btn" id="exportCSV">📋 CSV</button>
-                <button class="export-btn" id="exportPDF">📕 PDF</button>
-                <button class="export-btn" id="exportHTML">🌐 HTML</button>
-                <button class="export-btn" id="exportXML">⚙️ XML</button>
-                <button class="export-btn" id="exportTXT">📝 TXT</button>
-            </div>
-            <div class="export-options">
-                <label><input type="checkbox" id="includeTimestamps" checked> Timestamps</label>
-                <label><input type="checkbox" id="includeMetrics" checked> Metrics</label>
-            </div>
-        </div>
-
-        <div class="stats-section">
-            <h3>📈 Today's Stats</h3>
-            <div class="stats-grid">
-                <div class="stat-card"><span class="stat-label">Posts Rewritten</span><span class="stat-value" id="postsRewritten">0</span></div>
-                <div class="stat-card"><span class="stat-label">Dopamine ↓</span><span class="stat-value" id="avgDopamineReduction">0%</span></div>
-                <div class="stat-card"><span class="stat-label">Fatigue</span><span class="stat-value" id="fatigueStats">0%</span></div>
-            </div>
-        </div>
-
-        <div class="action-buttons">
-            <button id="openDashboard" class="btn-primary">📊 Dashboard</button>
-            <button id="resetStats" class="btn-secondary">🔄 Reset</button>
-        </div>
-
-        <div class="footer">
-            <p>v1.0.0 | Made with ❤️ for digital wellbeing</p>
-        </div>
+  <!-- Header -->
+  <div class="header">
+    <div class="header-top">
+      <span class="logo">⬡</span>
+      <div>
+        <h1>Dopamine De-escalator</h1>
+        <p class="subtitle">Reclaim your attention</p>
+      </div>
+      <span class="version-badge">v2.0</span>
     </div>
-    <script src="popup.js"></script>
+  </div>
+
+  <!-- Session Status -->
+  <div class="card">
+    <div class="card-row">
+      <span class="label">Status</span>
+      <span class="badge-green" id="statusBadge">Active</span>
+    </div>
+    <div class="card-row">
+      <span class="label">Session time</span>
+      <span class="mono" id="sessionTime">00:00:00</span>
+    </div>
+    <div class="card-row">
+      <span class="label">Cognitive fatigue</span>
+      <span class="mono" id="fatigueLevel">0%</span>
+    </div>
+    <div class="progress-wrap">
+      <div class="progress-bar" id="fatigueBar" style="width:0%"></div>
+    </div>
+  </div>
+
+  <!-- Dopamine Score -->
+  <div class="card">
+    <div class="card-title">⬡ Dopamine Score</div>
+    <div class="score-row">
+      <div class="score-box">
+        <span class="score-label">Original</span>
+        <span class="score-val red" id="originalScore">--</span>
+      </div>
+      <div class="arrow">→</div>
+      <div class="score-box">
+        <span class="score-label">AI Rewritten</span>
+        <span class="score-val green" id="currentScore">--</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- AI Engine Status -->
+  <div class="card" id="ollamaCard">
+    <div class="card-title">🤖 AI Engine</div>
+    <div class="card-row">
+      <span class="label">Engine</span>
+      <span id="engineLabel" class="mono">Rule-based (fallback)</span>
+    </div>
+    <div class="card-row">
+      <span class="label">Ollama status</span>
+      <span id="ollamaStatus" class="badge-grey">Not configured</span>
+    </div>
+    <button class="btn-small" id="openSettings">⚙ Configure Ollama</button>
+  </div>
+
+  <!-- Features -->
+  <div class="card">
+    <div class="card-title">Features</div>
+    <label class="toggle-row"><input type="checkbox" id="rewriteToggle" checked><span class="toggle-track"><span class="toggle-thumb"></span></span><span>AI Rewriter</span></label>
+    <label class="toggle-row"><input type="checkbox" id="grayscaleToggle"><span class="toggle-track"><span class="toggle-thumb"></span></span><span>Grayscale mode</span></label>
+    <label class="toggle-row"><input type="checkbox" id="dopameterToggle" checked><span class="toggle-track"><span class="toggle-thumb"></span></span><span>Dopamine badges</span></label>
+    <label class="toggle-row"><input type="checkbox" id="fatigueToggle" checked><span class="toggle-track"><span class="toggle-thumb"></span></span><span>Fatigue detection</span></label>
+    <label class="toggle-row"><input type="checkbox" id="scrollFrictionToggle" checked><span class="toggle-track"><span class="toggle-thumb"></span></span><span>Scroll friction</span></label>
+  </div>
+
+  <!-- Stats -->
+  <div class="card">
+    <div class="card-title">📈 Today's Stats</div>
+    <div class="stats-grid">
+      <div class="stat-card"><span class="stat-label">Rewritten</span><span class="stat-val" id="postsRewritten">0</span></div>
+      <div class="stat-card"><span class="stat-label">Dopamine ↓</span><span class="stat-val" id="avgDopamineReduction">0%</span></div>
+      <div class="stat-card"><span class="stat-label">Fatigue</span><span class="stat-val" id="fatigueStats">0%</span></div>
+    </div>
+  </div>
+
+  <!-- Export -->
+  <div class="card">
+    <div class="card-title">📊 Export Data</div>
+    <div class="export-grid">
+      <button class="export-btn" id="exportJSON">📄 JSON</button>
+      <button class="export-btn" id="exportCSV">📋 CSV</button>
+      <button class="export-btn" id="exportHTML">🌐 HTML</button>
+      <button class="export-btn" id="exportXML">⚙ XML</button>
+      <button class="export-btn" id="exportTXT">📝 TXT</button>
+      <button class="export-btn" id="exportPDF">📕 PDF</button>
+    </div>
+    <div class="export-opts">
+      <label><input type="checkbox" id="includeTimestamps" checked> Include timestamps</label>
+      <label><input type="checkbox" id="includeMetrics" checked> Include metrics</label>
+    </div>
+  </div>
+
+  <!-- Actions -->
+  <div class="action-row">
+    <button class="btn-primary" id="openDashboard">📊 Dashboard</button>
+    <button class="btn-secondary" id="resetStats">↺ Reset</button>
+  </div>
+
+  <div class="footer">v2.0.0 · Ollama-powered AI · Made for digital wellbeing</div>
+</div>
+<script src="popup.js"></script>
 </body>
 </html>

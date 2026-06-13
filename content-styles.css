@@ -1,2 +1,60 @@
-[data-rewritten="true"] { animation: contentUpdate 0.5s ease; }
-@keyframes contentUpdate { 0% { background-color: rgba(102, 126, 234, 0.2); } 100% { background-color: transparent; } }
+/* Dopamine De-escalator v2 — injected feed styles */
+
+[data-rewritten="true"] {
+  animation: dde-fade 0.6s ease;
+}
+@keyframes dde-fade {
+  0%   { background: rgba(16, 185, 129, 0.15); }
+  100% { background: transparent; }
+}
+
+/* HUD bubble */
+#dde-hud {
+  position: fixed;
+  bottom: 18px;
+  right: 18px;
+  z-index: 2147483647;
+  background: rgba(15, 27, 45, 0.92);
+  color: #f8fafc;
+  padding: 6px 12px;
+  border-radius: 99px;
+  font-size: 12px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-weight: 600;
+  border: 1px solid #1e3154;
+  backdrop-filter: blur(6px);
+  pointer-events: none;
+  user-select: none;
+  transition: opacity 0.3s;
+}
+#dde-hud-icon { margin-right: 4px; color: #0d9488; }
+
+/* Break prompt overlay */
+#dde-break {
+  position: fixed;
+  inset: 0;
+  z-index: 2147483646;
+  background: rgba(0,0,0,0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  backdrop-filter: blur(4px);
+}
+#dde-break-box {
+  background: #0f1b2d;
+  border: 1px solid #0d9488;
+  border-radius: 16px;
+  padding: 36px 40px;
+  text-align: center;
+  color: #f8fafc;
+  max-width: 380px;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+}
+#dde-break-box h2 { font-size: 20px; margin-bottom: 10px; }
+#dde-break-box p  { font-size: 14px; color: #94a3b8; }
+#dde-break-yes, #dde-break-no {
+  padding: 10px 22px; border-radius: 8px; border: none;
+  font-size: 13px; font-weight: 600; cursor: pointer;
+}
+#dde-break-yes { background: #0d9488; color: white; }
+#dde-break-no  { background: #1e3154; color: #94a3b8; }

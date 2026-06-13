@@ -1,35 +1,192 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Dashboard</title>
+<title>Dopamine De-escalator — Dashboard</title>
 <style>
-body{font-family:sans-serif;background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);padding:40px;margin:0}
-.dashboard{max-width:1200px;margin:0 auto}
-.header{text-align:center;color:white;margin-bottom:40px}
-h1{font-size:48px;margin:0}
-.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:24px}
-.card{background:white;border-radius:12px;padding:30px;box-shadow:0 10px 30px rgba(0,0,0,0.2)}
-.card h2{font-size:14px;color:#999;margin:0 0 16px 0}
-.value{font-size:48px;font-weight:bold;color:#667eea}
-.unit{font-size:14px;color:#666}
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#0f1b2d;color:#f8fafc;min-height:100vh;padding:40px 24px}
+  .page{max-width:900px;margin:0 auto}
+  .header{display:flex;align-items:center;gap:16px;margin-bottom:36px}
+  .logo{font-size:40px;color:#0d9488}
+  h1{font-size:28px;font-weight:800;color:#f8fafc}
+  .subtitle{font-size:13px;color:#94a3b8;margin-top:3px}
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:18px;margin-bottom:28px}
+  .card{background:#1e3154;border:1px solid #2d4a7a;border-radius:12px;padding:24px}
+  .card-label{font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.07em;margin-bottom:12px}
+  .card-value{font-size:44px;font-weight:800;color:#0d9488;line-height:1}
+  .card-unit{font-size:13px;color:#94a3b8;margin-top:6px}
+  .card-sub{font-size:11px;color:#475569;margin-top:10px}
+
+  /* bar chart */
+  .chart-card{background:#1e3154;border:1px solid #2d4a7a;border-radius:12px;padding:24px;margin-bottom:20px}
+  .chart-card h2{font-size:13px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.07em;margin-bottom:20px}
+  .bar-chart{display:flex;align-items:flex-end;gap:10px;height:120px}
+  .bar-wrap{flex:1;display:flex;flex-direction:column;align-items:center;gap:6px}
+  .bar{width:100%;border-radius:4px 4px 0 0;background:linear-gradient(180deg,#0d9488,#2563eb);min-height:4px;transition:height .5s ease}
+  .bar-label{font-size:10px;color:#64748b;white-space:nowrap}
+  .bar-val{font-size:10px;color:#0d9488;font-weight:700}
+
+  /* ai status */
+  .ai-card{background:#052e16;border:1px solid #166534;border-radius:12px;padding:20px;margin-bottom:20px;display:flex;align-items:center;gap:16px}
+  .ai-icon{font-size:28px}
+  .ai-card h3{font-size:14px;font-weight:700;color:#22c55e;margin-bottom:4px}
+  .ai-card p{font-size:12px;color:#86efac}
+  .ai-warn{background:#451a03;border:1px solid #92400e}
+  .ai-warn h3{color:#fbbf24}
+  .ai-warn p{color:#fcd34d}
+
+  .btn-row{display:flex;gap:10px;flex-wrap:wrap}
+  .btn{padding:10px 20px;border-radius:8px;border:none;font-size:12px;font-weight:700;cursor:pointer}
+  .btn-teal{background:linear-gradient(135deg,#0d9488,#2563eb);color:#fff}
+  .btn-ghost{background:#1e3154;color:#94a3b8;border:1px solid #2d4a7a}
+
+  .updated{font-size:11px;color:#475569;margin-top:20px;text-align:center}
 </style>
 </head>
 <body>
-<div class="dashboard">
-<div class="header"><h1>🧠 Dashboard</h1></div>
-<div class="grid">
-<div class="card"><h2>Posts Rewritten</h2><div class="value" id="posts">0</div><div class="unit">AI-modified</div></div>
-<div class="card"><h2>Dopamine ↓</h2><div class="value" id="dopamine">0%</div><div class="unit">Reduction</div></div>
-<div class="card"><h2>Session</h2><div class="value" id="session">0:00</div><div class="unit">Duration</div></div>
-<div class="card"><h2>Fatigue</h2><div class="value" id="fatigue">0%</div><div class="unit">Level</div></div>
+<div class="page">
+  <div class="header">
+    <div class="logo">⬡</div>
+    <div>
+      <h1>Dashboard</h1>
+      <p class="subtitle">Your attention recovery stats</p>
+    </div>
+    <div style="margin-left:auto">
+      <div id="aiStatusBadge" style="font-size:12px;font-weight:700;color:#94a3b8">AI: loading…</div>
+    </div>
+  </div>
+
+  <div id="aiCard" class="ai-card" style="display:none">
+    <div class="ai-icon">🤖</div>
+    <div>
+      <h3 id="aiCardTitle">Ollama Connected</h3>
+      <p id="aiCardDesc">Local AI model is rewriting your feed content.</p>
+    </div>
+  </div>
+
+  <div class="grid">
+    <div class="card">
+      <div class="card-label">Posts Rewritten</div>
+      <div class="card-value" id="postsVal">0</div>
+      <div class="card-unit">AI-modified posts</div>
+    </div>
+    <div class="card">
+      <div class="card-label">Dopamine ↓</div>
+      <div class="card-value" id="dopVal">0%</div>
+      <div class="card-unit">Score reduction</div>
+    </div>
+    <div class="card">
+      <div class="card-label">Session Time</div>
+      <div class="card-value" id="sessionVal">0:00</div>
+      <div class="card-unit">Today's browsing</div>
+    </div>
+    <div class="card">
+      <div class="card-label">Fatigue Index</div>
+      <div class="card-value" id="fatigueVal">0%</div>
+      <div class="card-unit">Cognitive load</div>
+    </div>
+    <div class="card">
+      <div class="card-label">Original Score</div>
+      <div class="card-value" id="origScoreVal" style="color:#ef4444">--</div>
+      <div class="card-unit">Before rewrite</div>
+    </div>
+    <div class="card">
+      <div class="card-label">Rewritten Score</div>
+      <div class="card-value" id="curScoreVal" style="color:#22c55e">--</div>
+      <div class="card-unit">After rewrite</div>
+    </div>
+  </div>
+
+  <div class="chart-card">
+    <h2>Fatigue over session</h2>
+    <div class="bar-chart" id="barChart">
+      <div class="bar-wrap"><div class="bar" style="height:4px"></div><div class="bar-val">—</div><div class="bar-label">now</div></div>
+    </div>
+  </div>
+
+  <div class="btn-row">
+    <button class="btn btn-teal" onclick="chrome.tabs.create({url: chrome.runtime.getURL('settings.html')})">⚙ Settings</button>
+    <button class="btn btn-ghost" id="btnReset">↺ Reset Stats</button>
+    <button class="btn btn-ghost" onclick="window.close()">✕ Close</button>
+  </div>
+
+  <p class="updated" id="lastUpdated">Refreshing…</p>
 </div>
-</div>
+
 <script>
-function u(){chrome.storage.sync.get(['sessionData','sessionStartTime'],(d)=>{
-if(d.sessionData){document.getElementById('posts').textContent=d.sessionData.postsRewritten||0;document.getElementById('dopamine').textContent=(d.sessionData.avgDopamineReduction||0)+'%';document.getElementById('fatigue').textContent=(d.sessionData.fatigueLevel||0)+'%'}
-if(d.sessionStartTime){const e=Math.floor((Date.now()-d.sessionStartTime)/1000);document.getElementById('session').textContent=Math.floor(e/3600)+':'+String(Math.floor(e%3600/60)).padStart(2,'0')}
-})}u();setInterval(u,5000)
+const fatigueHistory = [];
+
+function fmt(secs) {
+  return Math.floor(secs/3600) + ':' + String(Math.floor(secs%3600/60)).padStart(2,'0');
+}
+
+function update() {
+  chrome.storage.sync.get(['sessionData','sessionStartTime','settings','ollamaStatus'], d => {
+    const s = d.sessionData || {};
+    const cfg = d.settings || {};
+
+    document.getElementById('postsVal').textContent = s.postsRewritten || 0;
+    document.getElementById('dopVal').textContent = (s.avgDopamineReduction || 0) + '%';
+    document.getElementById('fatigueVal').textContent = (s.fatigueLevel || 0) + '%';
+    document.getElementById('origScoreVal').textContent = s.originalScore || '--';
+    document.getElementById('curScoreVal').textContent = s.postsRewritten > 0 ? (s.currentScore || 8) : '--';
+
+    if (d.sessionStartTime) {
+      const elapsed = Math.floor((Date.now() - d.sessionStartTime) / 1000);
+      document.getElementById('sessionVal').textContent = fmt(elapsed);
+    }
+
+    // AI status
+    const badge = document.getElementById('aiStatusBadge');
+    const card  = document.getElementById('aiCard');
+    const title = document.getElementById('aiCardTitle');
+    const desc  = document.getElementById('aiCardDesc');
+    if (cfg.ollamaEnabled) {
+      if (d.ollamaStatus === 'ok') {
+        badge.textContent = '🤖 Ollama: connected'; badge.style.color = '#22c55e';
+        card.style.display = 'flex'; card.className = 'ai-card';
+        title.textContent = 'Ollama AI Connected';
+        desc.textContent = `Model: ${cfg.ollamaModel || 'llama3.2'} · Rewriting locally`;
+      } else {
+        badge.textContent = '⚠ Ollama: offline'; badge.style.color = '#f59e0b';
+        card.style.display = 'flex'; card.className = 'ai-card ai-warn';
+        title.textContent = 'Ollama Offline';
+        desc.textContent = 'Using rule-based fallback. Start Ollama to enable AI rewrites.';
+      }
+    } else {
+      badge.textContent = 'AI: rule-based'; badge.style.color = '#94a3b8';
+      card.style.display = 'none';
+    }
+
+    // Bar chart
+    const fatigue = s.fatigueLevel || 0;
+    fatigueHistory.push(fatigue);
+    if (fatigueHistory.length > 12) fatigueHistory.shift();
+    const chart = document.getElementById('barChart');
+    const max = Math.max(...fatigueHistory, 1);
+    chart.innerHTML = fatigueHistory.map((v, i) => `
+      <div class="bar-wrap">
+        <div class="bar" style="height:${Math.max(4, Math.round((v/max)*110))}px;background:${v>=70?'#ef4444':v>=40?'#f59e0b':'linear-gradient(180deg,#0d9488,#2563eb)'}"></div>
+        <div class="bar-val">${v}%</div>
+        <div class="bar-label">${i===fatigueHistory.length-1?'now':'-'+(fatigueHistory.length-1-i)*5+'s'}</div>
+      </div>`).join('');
+
+    document.getElementById('lastUpdated').textContent = 'Last updated: ' + new Date().toLocaleTimeString();
+  });
+}
+
+document.getElementById('btnReset').addEventListener('click', () => {
+  if (confirm('Reset all stats?')) {
+    chrome.storage.sync.set({
+      sessionData: {postsRewritten:0,avgDopamineReduction:0,fatigueLevel:0,originalScore:0,currentScore:0},
+      sessionStartTime: Date.now()
+    }, update);
+  }
+});
+
+update();
+setInterval(update, 5000);
 </script>
 </body>
 </html>
