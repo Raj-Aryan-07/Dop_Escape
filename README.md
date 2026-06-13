@@ -200,21 +200,7 @@ https://ollama.com
 
 ---
 
-## Step 2 — Enable Browser Access
-
-```bash
-OLLAMA_ORIGINS="chrome-extension://*" ollama serve
-```
-
-Make permanent:
-
-```bash
-export OLLAMA_ORIGINS="chrome-extension://*"
-```
-
----
-
-## Step 3 — Pull a Model
+## Step 2 — Pull a Model
 
 ### Recommended
 
@@ -235,6 +221,22 @@ ollama pull mistral
 ```
 
 ---
+
+## Step 3 — Enable Browser Access
+
+```bash
+OLLAMA_ORIGINS="chrome-extension://*" ollama serve
+```
+
+Make permanent:
+
+```bash
+export OLLAMA_ORIGINS="chrome-extension://*"
+```
+
+---
+
+
 
 ## Step 4 — Configure Extension
 
@@ -529,6 +531,6 @@ Inspired by research in:
 
 ### Concept by Team somehackathon
 
-### Engineered by Raj Aryan
+### Engineered by Raj Aryan , Ayaan Mustafa , Parth Tomar
 
 *"The goal is not to stop people from using technology. The goal is to help people use it intentionally."*
