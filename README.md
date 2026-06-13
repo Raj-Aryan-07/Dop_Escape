@@ -527,8 +527,8 @@ Inspired by research in:
 
 **Local AI • Digital Wellbeing • Privacy First**
 
-## Concept by Team "somehackathon"
+### Concept by Team somehackathon
 
-## Engineered by 'Raj Aryan' , 'Ayaan Mustafa' , 'Parth Tomar'
-Note : This is my 1st time doing Vibe Coding. Hope this will work. No, guarentee for proper result of some things like Cognitive fatigue detection or the AI writer will work on availability of the ollama ai.
-### The issues will be solved when v2.1.0 comes.
+### Engineered by Raj Aryan
+
+*"The goal is not to stop people from using technology. The goal is to help people use it intentionally."*
