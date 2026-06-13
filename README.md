@@ -80,3 +80,5 @@ By default, Ollama blocks requests from web browsers. You must start Ollama with
 
 ## v2.0.0 | Concept by Team - "somehackathon". Engineered by "Raj Aryan".
 ## Made with ❤️
+---
+Note: There is dopamine_deescalator_blueprint.docx file . Please don't save that in the folder in which you have placed the other files nd don't add in extension
