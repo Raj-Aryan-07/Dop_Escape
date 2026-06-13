@@ -36,15 +36,28 @@ class ContentRewriter {
         selectors.forEach(sel => {
             try {
                 document.querySelectorAll(sel).forEach(el => {
-                    if (!el.dataset.rewritten) {
+                    // Prevent re-processing elements that are currently waiting for the API
+                    if (!el.dataset.rewritten && !el.dataset.processing) {
                         const text = el.innerText || el.textContent;
-                        if (text && text.length > 0) {
+                        if (text && text.trim().length > 10) {
                             const score = this.calcScore(text);
                             if (score > 40) {
-                                el.innerText = this.rewriteText(text);
-                                el.dataset.rewritten = 'true';
-                                this.postsRewritten++;
-                                this.updateStats();
+                                el.dataset.processing = 'true';
+                                el.style.opacity = '0.5'; // Visual indicator of processing
+                                
+                                // Send to Background script (Ollama)
+                                chrome.runtime.sendMessage({ action: 'rewriteWithOllama', text: text }, response => {
+                                    if (response && response.success) {
+                                        el.innerText = response.rewrittenText;
+                                    } else {
+                                        // Fallback if Ollama is offline
+                                        el.innerText = this.fallbackRewrite(text); 
+                                    }
+                                    el.dataset.rewritten = 'true';
+                                    el.style.opacity = '1';
+                                    this.postsRewritten++;
+                                    this.updateStats();
+                                });
                             }
                         }
                     }
@@ -53,17 +66,38 @@ class ContentRewriter {
         });
     }
 
+    // Advanced scoring algorithm from the Blueprint Appendix
     calcScore(text) {
         let score = 0;
-        score += (text.match(/!/g) || []).length * 5;
-        score += (text.match(/\?/g) || []).length * 5;
-        score += (text.match(/[A-Z]{2,}/g) || []).length * 5;
-        const phrases = ['shocking', 'viral', 'trending', 'amazing', 'incredible'];
-        phrases.forEach(p => {if (text.toLowerCase().includes(p)) score += 15;});
+        const t = text || '';
+        
+        // Emoji density
+        const emojiCount = (t.match(/\p{Emoji}/gu) || []).length;
+        score += Math.min(25, emojiCount * 5);
+        
+        // ALL CAPS ratio
+        const words = t.split(/\s+/).filter(w => w.length > 3);
+        const capsRatio = words.filter(w => w === w.toUpperCase()).length / (words.length || 1);
+        score += Math.min(20, Math.round(capsRatio * 40));
+        
+        // Exclamation marks
+        const excl = (t.match(/!/g) || []).length;
+        score += Math.min(15, excl * 5);
+        
+        // Clickbait phrases
+        const clickbait = ["you won't believe", "this changes everything", "breaking", "shocking", "must see", "going viral", "everyone is talking"];
+        const cb = clickbait.filter(p => t.toLowerCase().includes(p)).length;
+        score += Math.min(20, cb * 7);
+        
+        // Sentiment amplifiers
+        const amplifiers = ["amazing", "incredible", "devastating", "terrifying", "insane", "unbelievable", "explosive"];
+        const amp = amplifiers.filter(a => t.toLowerCase().includes(a)).length;
+        score += Math.min(20, amp * 5);
+        
         return Math.min(100, score);
     }
 
-    rewriteText(text) {
+    fallbackRewrite(text) {
         text = text.replace(/!+/g, '.').replace(/\?{2,}/g, '?');
         text = text.replace(/\b([A-Z]{3,})\b/g, m => m.charAt(0) + m.slice(1).toLowerCase());
         const map = {'shocking': 'notable', 'viral': 'circulating', 'amazing': 'notable', 'incredible': 'reported'};
