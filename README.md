@@ -527,8 +527,7 @@ Inspired by research in:
 
 **Local AI • Digital Wellbeing • Privacy First**
 
-### Concept by Team somehackathon
+## Concept by Team "somehackathon"
 
-### Engineered by Raj Aryan
-
-*"The goal is not to stop people from using technology. The goal is to help people use it intentionally."*
+## Engineered by Raj Aryan
+Note : This is my 1st time doing Vibe Coding. Hope this will work
