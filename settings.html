@@ -470,54 +470,7 @@
 
   <div class="saved-toast" id="savedToast">✅ Settings saved</div>
 
-  <script>
-    const $ = id => document.getElementById(id);
-
-    // ================= RANGE SLIDERS =================
-
-    function bindRange(sliderId, labelId) {
-      const slider = document.getElementById(sliderId);
-      const label = document.getElementById(labelId);
-
-      if (!slider) {
-        console.error("Slider missing:", sliderId);
-        return;
-      }
-
-      if (!label) {
-        console.error("Label missing:", labelId);
-        return;
-      }
-
-      label.textContent = slider.value;
-
-      slider.addEventListener("input", function () {
-        label.textContent = this.value;
-        console.log(sliderId, this.value);
-      });
-
-      slider.addEventListener("change", function () {
-        label.textContent = this.value;
-      });
-    }
-
-    document.addEventListener("DOMContentLoaded", () => {
-
-      bindRange("threshWarn", "warnVal");
-      bindRange("threshFriction", "frictionVal");
-      bindRange("threshFull", "fullVal");
-      bindRange("frictionStrength", "frictionStrVal");
-      bindRange("scoreThreshold", "scoreThreshVal");
-
-      // ================= OLLAMA TOGGLE =================
-
-      $("ollamaEnabled").addEventListener("change", e => {
-        $("ollamaFields").style.display =
-          e.target.checked ? "block" : "none";
-      });
-
-    });
-  </script>
+  <script src="settings.js"></script>
 </body>
 
 </html>
