@@ -78,4 +78,5 @@ By default, Ollama blocks requests from web browsers. You must start Ollama with
 ✅ No tracking
 ✅ Open source
 
-## v2.0.0 | Concept by [somehackathon team]. Engineered by [Raj Aryan]. | Made with ❤️
+## v2.0.0 | Concept by Team - "somehackathon". Engineered by "Raj Aryan".
+## Made with ❤️
