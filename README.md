@@ -223,9 +223,19 @@ ollama pull mistral
 ---
 
 ## Step 3 — Enable Browser Access
-
+For Linux:
 ```bash
 OLLAMA_ORIGINS="chrome-extension://*" ollama serve
+```
+For Window's PowerShell
+```bash
+$env:OLLAMA_ORIGINS="chrome-extension://*"
+ollama serve
+```
+For Mac
+```bash
+export OLLAMA_ORIGINS="chrome-extension://*"
+ollama serve
 ```
 
 Make permanent:
