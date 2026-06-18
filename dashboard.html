@@ -122,7 +122,7 @@ function fmt(secs) {
 }
 
 function update() {
-  chrome.storage.sync.get(['sessionData','sessionStartTime','settings','ollamaStatus'], d => {
+  chrome.storage.sync.get(['sessionData','sessionActiveTime','settings','ollamaStatus'], d => {
     const s = d.sessionData || {};
     const cfg = d.settings || {};
 
@@ -132,10 +132,8 @@ function update() {
     document.getElementById('origScoreVal').textContent = s.originalScore || '--';
     document.getElementById('curScoreVal').textContent = s.postsRewritten > 0 ? (s.currentScore || 8) : '--';
 
-    if (d.sessionStartTime) {
-      const elapsed = Math.floor((Date.now() - d.sessionStartTime) / 1000);
-      document.getElementById('sessionVal').textContent = fmt(elapsed);
-    }
+    const elapsed = d.sessionActiveTime || 0;
+    document.getElementById('sessionVal').textContent = fmt(elapsed);
 
     // AI status
     const badge = document.getElementById('aiStatusBadge');
@@ -180,8 +178,12 @@ document.getElementById('btnReset').addEventListener('click', () => {
   if (confirm('Reset all stats?')) {
     chrome.storage.sync.set({
       sessionData: {postsRewritten:0,avgDopamineReduction:0,fatigueLevel:0,originalScore:0,currentScore:0},
-      sessionStartTime: Date.now()
-    }, update);
+      sessionActiveTime: 0,
+      sessionVirtualTime: 0
+    }, () => {
+      chrome.runtime.sendMessage({ action: "resetActiveTime" });
+      update();
+    });
   }
 });
 

@@ -1,17 +1,17 @@
 {
   "manifest_version": 3,
   "name": "Dopamine De-escalator",
-  "version": "2.0.0",
-  "description": "AI-powered browser extension to reduce digital addiction — now with local Ollama AI support",
+  "version": "2.1.0",
+  "description": "AI-powered browser extension to reduce digital addiction — local Ollama AI support",
   "permissions": [
     "scripting",
     "activeTab",
     "storage",
     "tabs",
-    "alarms"
+    "alarms",
+    "declarativeNetRequest"
   ],
   "host_permissions": [
-    "https://twitter.com/*",
     "https://x.com/*",
     "https://reddit.com/*",
     "https://www.reddit.com/*",
@@ -24,7 +24,9 @@
     "https://tiktok.com/*",
     "https://www.tiktok.com/*",
     "http://localhost/*",
-    "http://127.0.0.1/*"
+    "http://localhost:*/*",
+    "http://127.0.0.1/*",
+    "http://127.0.0.1:*/*"
   ],
   "background": {
     "service_worker": "background.js"
@@ -32,7 +34,6 @@
   "content_scripts": [
     {
       "matches": [
-        "https://twitter.com/*",
         "https://x.com/*",
         "https://reddit.com/*",
         "https://www.reddit.com/*",
@@ -57,5 +58,15 @@
     "default_popup": "popup.html",
     "default_title": "Dopamine De-escalator"
   },
-  "options_page": "settings.html"
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "settings.html",
+        "dashboard.html"
+      ],
+      "matches": [
+        "<all_urls>"
+      ]
+    }
+  ]
 }

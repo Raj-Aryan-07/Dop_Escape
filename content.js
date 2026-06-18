@@ -1,6 +1,7 @@
+
 // ═══════════════════════════════════════════════════════════
-// Dopamine De-escalator v2.0 — content.js
-// Supports: Twitter/X, Reddit, Instagram, YouTube, Facebook, TikTok
+// Dopamine De-escalator v2.1 — content.js (FIXED)
+// Fixes: storage.onChanged listener, observerPaused usage
 // ═══════════════════════════════════════════════════════════
 
 (function () {
@@ -10,45 +11,80 @@
 
   // ── Site Selectors ───────────────────────────────────────
   const SELECTORS = {
-    "twitter.com":    ['[data-testid="tweetText"]', 'article [lang]'],
-    "x.com":          ['[data-testid="tweetText"]', 'article [lang]'],
-    "reddit.com":     ['h1', '[data-click-id="text"] p', 'shreddit-post', '.Post h3', '[slot="title"]'],
-    "instagram.com":  ['._aacl._aaco._aacu', 'h1', 'span[dir="auto"]'],
-    "youtube.com":    ['#video-title', '#title yt-formatted-string', '#description-text'],
-    "facebook.com":   ['[data-ad-comet-preview="message"]', '[dir="auto"] span'],
-    "tiktok.com":     ['[data-e2e="video-desc"]', '.tiktok-j2a19r-SpanText', 'span[class*="SpanText"]'],
+    "twitter.com": ['[data-testid="tweetText"]', 'article [lang]'],
+    "x.com": ['[data-testid="tweetText"]', 'article [lang]'],
+    "reddit.com": ['h1', '[data-click-id="text"] p', 'shreddit-post', '.Post h3', '[slot="title"]'],
+    "instagram.com": ['._aacl._aaco._aacu', 'h1', 'span[dir="auto"]'],
+    "youtube.com": ['#video-title', '#title yt-formatted-string', '#description-text'],
+    "facebook.com": ['[data-ad-comet-preview="message"]', '[dir="auto"] span'],
+    "tiktok.com": ['[data-e2e="video-desc"]', '.tiktok-j2a19r-SpanText', 'span[class*="SpanText"]'],
   };
 
   const FEED_SELECTORS = {
     "twitter.com": '[data-testid="primaryColumn"]',
-    "x.com":       '[data-testid="primaryColumn"]',
-    "reddit.com":  '.ListingLayout-backgroundContainer, #main-content',
+    "x.com": '[data-testid="primaryColumn"]',
+    "reddit.com": '.ListingLayout-backgroundContainer, #main-content',
     "instagram.com": 'main',
     "youtube.com": '#primary',
     "facebook.com": '[role="main"]',
-    "tiktok.com":  '#main-content-homepage_hot, #app',
+    "tiktok.com": '#main-content-homepage_hot, #app',
   };
 
   // ── State ────────────────────────────────────────────────
   const site = detectSite();
   let features = { rewrite: true, grayscale: false, dopameter: true, fatigue: true, scrollFriction: true };
-  let settings = { interventionThreshold: 20, scoreThreshold: 45, frictionStrength: 40 };
-  let sessionStartTime = Date.now();
+  let settings = {
+    thresholdWarn: 10,
+    thresholdFriction: 20,
+    interventionThreshold: 30,
+    frictionStrength: 40,
+    scoreThreshold: 45
+  };
+  let sessionActiveTime = 0;
+  let sessionVirtualTime = 0;
   let postsRewritten = 0;
   let allScores = [];
   let scrollFrictionActive = false;
   let grayscaleLevel = 0;
   let observerPaused = false;
+  let scrolledInLastSecond = false;
+
+  // Adaptive watching/scrolling state
+  let scrollDistance = 0;
+  let lastScrollY = window.scrollY;
+  let watchingTicks = 0; // Number of 8-second intervals where user is active but not scrolling
+  let activeTicks = 0;   // Number of 8-second intervals where page is active/focused
 
   // ── Boot ─────────────────────────────────────────────────
   async function init() {
-    const data = await getStorage(["features", "settings", "sessionStartTime"]);
+    const data = await getStorage(["features", "settings", "sessionActiveTime", "sessionVirtualTime"]);
     if (data.features) features = data.features;
     if (data.settings) settings = data.settings;
-    if (data.sessionStartTime) sessionStartTime = data.sessionStartTime;
+    if (data.sessionActiveTime !== undefined) sessionActiveTime = data.sessionActiveTime;
+    if (data.sessionVirtualTime !== undefined) sessionVirtualTime = data.sessionVirtualTime;
 
     injectHUD();
     setupObserver();
+    setupStorageListener(); // FIX: Listen for settings changes
+
+    // Setup 1-second active heartbeat
+    setInterval(() => {
+      if (document.visibilityState === "visible" && document.hasFocus()) {
+        chrome.runtime.sendMessage({
+          action: "heartbeat",
+          scrolled: scrolledInLastSecond
+        }).catch(() => {});
+        scrolledInLastSecond = false;
+      }
+    }, 1000);
+
+    // Listen to scroll events to monitor scroll activity (scrolling vs. watching)
+    window.addEventListener("scroll", () => {
+      scrolledInLastSecond = true;
+      scrollDistance += Math.abs(window.scrollY - lastScrollY);
+      lastScrollY = window.scrollY;
+    }, { passive: true });
+
     setTimeout(scanPage, 600);
     startSessionLoop();
     chrome.runtime.onMessage.addListener(onMessage);
@@ -57,6 +93,25 @@
   // ── Storage helper ────────────────────────────────────────
   function getStorage(keys) {
     return new Promise(r => chrome.storage.sync.get(keys, r));
+  }
+
+  // ── FIX: Storage change listener ──────────────────────────
+  function setupStorageListener() {
+    chrome.storage.onChanged.addListener((changes, area) => {
+      if (area !== "sync") return;
+      if (changes.settings) {
+        const newSettings = changes.settings.newValue;
+        if (newSettings) {
+          settings = { ...settings, ...newSettings };
+        }
+      }
+      if (changes.features) {
+        const newFeatures = changes.features.newValue;
+        if (newFeatures) {
+          features = { ...features, ...newFeatures };
+        }
+      }
+    });
   }
 
   // ── Detect site ──────────────────────────────────────────
@@ -71,34 +126,29 @@
     let score = 0;
     const t = text;
 
-    // Emoji density
     const emojis = (t.match(/\p{Emoji_Presentation}/gu) || []).length;
     score += Math.min(22, emojis * 4);
 
-    // ALL CAPS
     const words = t.split(/\s+/).filter(w => w.length > 3);
     if (words.length) {
       const capsRatio = words.filter(w => w === w.toUpperCase() && /[A-Z]/.test(w)).length / words.length;
       score += Math.min(18, Math.round(capsRatio * 36));
     }
 
-    // Exclamation marks
     score += Math.min(14, ((t.match(/!/g) || []).length) * 4);
 
-    // Clickbait phrases
     const clickbait = [
-      "you won't believe","this changes everything","breaking","must see","going viral",
-      "everyone is talking","share before","deleted soon","they don't want you",
-      "exposed","shocking truth","will blow your mind","you need to see","this is huge",
-      "game changer","mind blowing","thread","🚨","‼️"
+      "you won't believe", "this changes everything", "breaking", "must see", "going viral",
+      "everyone is talking", "share before", "deleted soon", "they don't want you",
+      "exposed", "shocking truth", "will blow your mind", "you need to see", "this is huge",
+      "game changer", "mind blowing", "thread", "🚨", "‼️"
     ];
     score += Math.min(22, clickbait.filter(p => t.toLowerCase().includes(p)).length * 6);
 
-    // Emotional amplifiers
     const amps = [
-      "amazing","incredible","devastating","terrifying","insane","unbelievable",
-      "explosive","bombshell","epic","catastrophic","outrageous","infuriating",
-      "disgusting","heartbreaking","stunning","shocking","alarming","furious",
+      "amazing", "incredible", "devastating", "terrifying", "insane", "unbelievable",
+      "explosive", "bombshell", "epic", "catastrophic", "outrageous", "infuriating",
+      "disgusting", "heartbreaking", "stunning", "shocking", "alarming", "furious",
     ];
     score += Math.min(18, amps.filter(a => t.toLowerCase().includes(a)).length * 4);
 
@@ -186,6 +236,10 @@
     el.setAttribute("data-dde-original", el.innerText || el.textContent);
     el.style.transition = "opacity 0.35s ease";
     el.style.opacity = "0.3";
+
+    // FIX: Pause observer during rewrite to avoid mutation loops
+    observerPaused = true;
+
     setTimeout(() => {
       try {
         el.innerText = newText;
@@ -196,7 +250,6 @@
       el.setAttribute("data-rewritten", "true");
       el.setAttribute("data-dde-done", "rewritten");
 
-      // Update badge
       const badge = el.parentNode && el.parentNode.querySelector(".dde-badge");
       if (badge) {
         badge.style.background = "#22c55e22";
@@ -208,12 +261,15 @@
 
       postsRewritten++;
       updateStats(oldScore);
+
+      // Resume observer
+      observerPaused = false;
     }, 320);
   }
 
   // ── Stats ─────────────────────────────────────────────────
   function updateStats(lastOriginalScore) {
-    const duration = (Date.now() - sessionStartTime) / 60000;
+    const duration = sessionActiveTime / 60;
     const fatigue = duration > 20 ? Math.min(100, Math.round((duration / 20) * 50)) : 0;
     const avg = allScores.length ? Math.round(allScores.reduce((a, b) => a + b, 0) / allScores.length) : 0;
     chrome.storage.sync.set({
@@ -247,27 +303,62 @@
 
   // ── Session loop ──────────────────────────────────────────
   function startSessionLoop() {
-    setInterval(() => {
-      const minutes = Math.floor((Date.now() - sessionStartTime) / 60000);
-      const avg = allScores.length
-        ? Math.round(allScores.reduce((a, b) => a + b, 0) / allScores.length) : 0;
+    setInterval(async () => {
+      // Fetch latest accumulated timer values from storage
+      const data = await getStorage(["sessionActiveTime", "sessionVirtualTime"]);
+      if (data.sessionActiveTime !== undefined) sessionActiveTime = data.sessionActiveTime;
+      if (data.sessionVirtualTime !== undefined) sessionVirtualTime = data.sessionVirtualTime;
 
-      // Grayscale
+      const activeMinutes = Math.floor(sessionActiveTime / 60);
+      const virtualMinutes = Math.floor(sessionVirtualTime / 60);
+
+      const isVisible = document.visibilityState === "visible" && document.hasFocus();
+      if (isVisible) {
+        activeTicks++;
+        // If they scrolled less than 150 pixels in 8 seconds, they are "watching/reading"
+        if (scrollDistance < 150) {
+          watchingTicks++;
+        }
+      }
+
+      // Reset scroll distance for the next interval
+      scrollDistance = 0;
+
+      // Use settings for thresholds
+      const threshWarn = settings.thresholdWarn !== undefined ? settings.thresholdWarn : 10;
+      const threshFriction = settings.thresholdFriction !== undefined ? settings.thresholdFriction : 20;
+      const threshFull = settings.interventionThreshold !== undefined ? settings.interventionThreshold : 30;
+      const frictionStrength = settings.frictionStrength !== undefined ? settings.frictionStrength : 40;
+
       if (features.grayscale) {
-        const level = minutes >= 30 ? 100 : minutes >= 20 ? 60 : minutes >= 10 ? 30 : 0;
+        const level = virtualMinutes >= threshFull ? 100 : virtualMinutes >= threshFriction ? 60 : virtualMinutes >= threshWarn ? 30 : 0;
         applyGrayscale(level);
       }
 
-      // Scroll friction
       if (features.scrollFriction) {
-        const friction = minutes >= 30 ? 0.55 : minutes >= 20 ? 0.35 : 0;
+        let friction = 0;
+        if (activeMinutes >= threshFull) {
+          friction = Math.min(0.95, (frictionStrength * 1.375) / 100); // e.g., 55% for 40% strength
+        } else if (activeMinutes >= threshFriction) {
+          friction = Math.min(0.95, (frictionStrength * 0.875) / 100); // e.g., 35% for 40% strength
+        }
+
+        // Reduce friction if they are watching more than scrolling
+        if (friction > 0 && activeTicks > 0) {
+          const watchRatio = watchingTicks / activeTicks;
+          // Scale down friction by up to 40% if watchRatio is high
+          const reductionFactor = 1 - (watchRatio * 0.4);
+          friction = friction * reductionFactor;
+        }
+
         setFriction(friction);
+      } else {
+        setFriction(0);
       }
 
-      // Break prompt
-      if (minutes >= 30 && minutes % 10 === 0) maybeBreakPrompt(minutes);
+      if (activeMinutes >= threshFull && activeMinutes % 10 === 0) maybeBreakPrompt(activeMinutes);
 
-      updateHUD(minutes, avg);
+      updateHUD(virtualMinutes, allScores.length ? Math.round(allScores.reduce((a, b) => a + b, 0) / allScores.length) : 0);
     }, 8000);
   }
 
@@ -279,6 +370,28 @@
     if (!feed) return;
     feed.style.transition = "filter 2s ease";
     feed.style.filter = pct > 0 ? `grayscale(${pct}%)` : "";
+  }
+
+  // Helper to find the nearest scrollable ancestor in the vertical direction
+  function findScrollableElement(target, deltaY) {
+    let el = target;
+    while (el && el !== document.documentElement && el !== document.body) {
+      const style = window.getComputedStyle(el);
+      const overflowY = style.overflowY || style.overflow || '';
+      const isScrollable = overflowY === 'auto' || overflowY === 'scroll';
+
+      if (isScrollable) {
+        // Check if the element has scrollable content and can be scrolled in the desired direction
+        if (deltaY > 0 && el.scrollHeight > el.clientHeight && el.scrollTop < el.scrollHeight - el.clientHeight) {
+          return el;
+        }
+        if (deltaY < 0 && el.scrollTop > 0) {
+          return el;
+        }
+      }
+      el = el.parentElement;
+    }
+    return window;
   }
 
   // ── Scroll friction ───────────────────────────────────────
@@ -296,8 +409,20 @@
   }
   function onWheel(e) {
     if (_frictionLevel === 0) return;
+
+    // Only apply friction if there is a vertical scroll component
+    if (Math.abs(e.deltaY) < 0.1) return;
+
     e.preventDefault();
-    window.scrollBy({ top: e.deltaY * (1 - _frictionLevel), behavior: "auto" });
+
+    const scrollTarget = findScrollableElement(e.target, e.deltaY);
+    const scrollAmountY = e.deltaY * (1 - _frictionLevel);
+
+    if (scrollTarget === window) {
+      window.scrollBy({ top: scrollAmountY, left: e.deltaX, behavior: "auto" });
+    } else {
+      scrollTarget.scrollBy({ top: scrollAmountY, left: e.deltaX, behavior: "auto" });
+    }
   }
 
   // ── Break prompt ──────────────────────────────────────────
@@ -318,7 +443,12 @@
         </div>
       </div>`;
     document.body.appendChild(el);
-    document.getElementById("dde-break-yes").onclick = () => { el.remove(); sessionStartTime = Date.now(); };
+    document.getElementById("dde-break-yes").onclick = () => {
+      el.remove();
+      sessionActiveTime = 0;
+      sessionVirtualTime = 0;
+      chrome.runtime.sendMessage({ action: "resetActiveTime" }).catch(() => {});
+    };
     document.getElementById("dde-break-no").onclick = () => el.remove();
   }
 
@@ -341,7 +471,7 @@
       send({ success: true });
     }
     if (req.action === "getStatus") {
-      const minutes = Math.floor((Date.now() - sessionStartTime) / 60000);
+      const minutes = Math.floor(sessionActiveTime / 60);
       const avg = allScores.length ? Math.round(allScores.reduce((a, b) => a + b, 0) / allScores.length) : 0;
       send({ minutes, avgScore: avg, postsRewritten, site });
     }

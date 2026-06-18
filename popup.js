@@ -1,8 +1,8 @@
 // ═══════════════════════════════════════════════════════════
-// Dopamine De-escalator v2.0 — popup.js
+// Dopamine De-escalator v2.1 — popup.js (FIXED)
+// Fix: lastError check in checkOllamaStatus callback
 // ═══════════════════════════════════════════════════════════
 
-// ── Helpers ────────────────────────────────────────────────
 function $(id) { return document.getElementById(id); }
 function getStorage(keys) { return new Promise(r => chrome.storage.sync.get(keys, r)); }
 function setStorage(obj) { return new Promise(r => chrome.storage.sync.set(obj, r)); }
@@ -16,14 +16,13 @@ function toast(msg, color = "#0d9488") {
   setTimeout(() => el.remove(), 2600);
 }
 
-// ── Exporter ───────────────────────────────────────────────
 const Exporter = {
   async getData() {
     const data = await getStorage(["sessionData", "settings", "ollamaStatus"]);
     return {
       exportDate: new Date().toISOString(),
       extension: "Dopamine De-escalator",
-      version: "2.0.0",
+      version: "2.1.0",
       aiEngine: data.settings?.ollamaEnabled ? `Ollama (${data.settings.ollamaModel})` : "Rule-based fallback",
       ollamaStatus: data.ollamaStatus || "unchecked",
       metrics: data.sessionData || {},
@@ -98,7 +97,6 @@ const Exporter = {
   },
 
   async pdf() {
-    // PDF is generated as a styled HTML — user can print-to-PDF from browser
     const d = await this.getData();
     const rows = Object.entries(d.metrics).map(([k, v]) =>
       `<tr><td>${k}</td><td>${v}</td></tr>`).join("");
@@ -122,7 +120,6 @@ const Exporter = {
   },
 };
 
-// ── PopupManager ───────────────────────────────────────────
 class PopupManager {
   constructor() {
     this.setupToggles();
@@ -161,8 +158,10 @@ class PopupManager {
       if (confirm("Reset all statistics?")) {
         chrome.storage.sync.set({
           sessionData: { postsRewritten: 0, avgDopamineReduction: 0, fatigueLevel: 0, originalScore: 0, currentScore: 0 },
-          sessionStartTime: Date.now(),
+          sessionActiveTime: 0,
+          sessionVirtualTime: 0
         });
+        chrome.runtime.sendMessage({ action: "resetActiveTime" });
         this.refreshUI();
         toast("Stats reset");
       }
@@ -212,9 +211,9 @@ class PopupManager {
 
   startTimer() {
     const tick = () => {
-      getStorage(["sessionStartTime"]).then(data => {
-        if (!data.sessionStartTime) return;
-        const elapsed = Math.floor((Date.now() - data.sessionStartTime) / 1000);
+      chrome.runtime.sendMessage({ action: "getActiveTime" }, res => {
+        if (chrome.runtime.lastError || !res) return;
+        const elapsed = res.sessionActiveTime || 0;
         const h = Math.floor(elapsed / 3600);
         const m = Math.floor((elapsed % 3600) / 60);
         const s = elapsed % 60;
@@ -240,10 +239,17 @@ class PopupManager {
 
       eng.textContent = `Ollama · ${cfg.ollamaModel || "llama3.2"}`;
 
-      // Ping Ollama
+      // FIX: Add lastError check in callback
       chrome.runtime.sendMessage(
         { action: "checkOllama", url: cfg.ollamaUrl, model: cfg.ollamaModel },
         res => {
+          // FIX: Check for service worker errors
+          if (chrome.runtime.lastError) {
+            st.className = "badge-err"; st.textContent = "SW error";
+            eng.textContent = "Rule-based (SW unavailable)";
+            return;
+          }
+
           if (res && res.ok) {
             st.className = "badge-ok"; st.textContent = "Connected ✓";
             eng.textContent = `Ollama · ${cfg.ollamaModel} ✓`;
