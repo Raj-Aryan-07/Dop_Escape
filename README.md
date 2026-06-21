@@ -337,6 +337,8 @@ Open a new Terminal window and run one of the verified working models:
 
 ## Step 4 — Configure Extension
 
+> **Note:** Open your terminal and run `ollama list` to ensure the Ollama background service is active before configuring the extension.
+
 Open:
 
 ```text
