@@ -24,13 +24,19 @@
 
     .page {
       width: 100%;
-      max-width: 640px
+      max-width: 640px;
+      animation: pageIn .4s ease;
+    }
+    @keyframes pageIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
     }
 
     h1 {
       font-size: 24px;
       color: #0d9488;
-      margin-bottom: 4px
+      margin-bottom: 4px;
+      text-shadow: 0 0 20px rgba(13, 148, 136, 0.2)
     }
 
     .sub {
@@ -44,7 +50,13 @@
       border: 1px solid #2d4a7a;
       border-radius: 12px;
       padding: 24px;
-      margin-bottom: 20px
+      margin-bottom: 20px;
+      transition: transform .2s ease, box-shadow .2s ease, border-color .2s ease
+    }
+    .card:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 6px 20px rgba(13, 148, 136, 0.08);
+      border-color: #3d5a8a
     }
 
     .card h2 {
@@ -79,13 +91,14 @@
       padding: 10px 12px;
       font-size: 13px;
       outline: none;
-      transition: border .2s
+      transition: border .2s, box-shadow .2s
     }
 
     input[type=text]:focus,
     input[type=url]:focus,
     select:focus {
-      border-color: #0d9488
+      border-color: #0d9488;
+      box-shadow: 0 0 0 3px rgba(13, 148, 136, 0.15)
     }
 
     select option {
@@ -97,7 +110,8 @@
       justify-content: space-between;
       align-items: center;
       padding: 10px 0;
-      border-bottom: 1px solid #2d4a7a
+      border-bottom: 1px solid #2d4a7a;
+      transition: background .15s
     }
 
     .toggle-field:last-child {
@@ -132,7 +146,7 @@
       background: #334155;
       border-radius: 99px;
       cursor: pointer;
-      transition: background .2s
+      transition: background .25s ease
     }
 
     .switch-thumb {
@@ -143,7 +157,7 @@
       border-radius: 50%;
       top: 3px;
       left: 3px;
-      transition: all .2s;
+      transition: all .25s cubic-bezier(0.4, 0, 0.2, 1);
       cursor: pointer
     }
 
@@ -153,7 +167,8 @@
 
     .switch input:checked~.switch-thumb {
       left: 21px;
-      background: #fff
+      background: #fff;
+      box-shadow: 0 0 6px rgba(13, 148, 136, 0.4)
     }
 
     /* Ollama status panel */
@@ -167,7 +182,12 @@
     }
 
     #statusPanel.show {
-      display: block
+      display: block;
+      animation: panelIn .25s ease
+    }
+    @keyframes panelIn {
+      from { opacity: 0; transform: translateY(-4px); }
+      to { opacity: 1; transform: translateY(0); }
     }
 
     .status-row {
@@ -211,14 +231,16 @@
       font-size: 10px;
       padding: 3px 8px;
       border-radius: 99px;
-      cursor: pointer
+      cursor: pointer;
+      transition: all .2s ease
     }
 
     .model-tag:hover,
     .model-tag.active {
       background: #0d9488;
       color: #fff;
-      border-color: #0d9488
+      border-color: #0d9488;
+      box-shadow: 0 2px 8px rgba(13, 148, 136, 0.25)
     }
 
     .btn-row {
@@ -234,22 +256,33 @@
       font-size: 13px;
       font-weight: 700;
       cursor: pointer;
-      transition: opacity .2s
+      transition: all .2s ease
     }
 
     .btn:hover {
-      opacity: .88
+      transform: translateY(-1px)
+    }
+    .btn:active {
+      transform: translateY(0)
     }
 
     .btn-teal {
       background: linear-gradient(135deg, #0d9488, #2563eb);
-      color: #fff
+      color: #fff;
+      box-shadow: 0 3px 12px rgba(13, 148, 136, 0.2)
+    }
+    .btn-teal:hover {
+      box-shadow: 0 6px 20px rgba(13, 148, 136, 0.3)
     }
 
     .btn-ghost {
       background: #1e3154;
       color: #94a3b8;
       border: 1px solid #2d4a7a
+    }
+    .btn-ghost:hover {
+      border-color: #0d9488;
+      color: #0d9488
     }
 
     .btn-sm {
@@ -259,16 +292,18 @@
       border: none;
       cursor: pointer;
       font-weight: 600;
-      transition: all .2s
+      transition: all .2s ease
     }
 
     .btn-check {
       background: #0d9488;
-      color: #fff
+      color: #fff;
+      box-shadow: 0 2px 8px rgba(13, 148, 136, 0.2)
     }
 
     .btn-check:hover {
-      background: #0f766e
+      background: #0f766e;
+      box-shadow: 0 4px 12px rgba(13, 148, 136, 0.3)
     }
 
     .btn-pull {
@@ -279,11 +314,12 @@
 
     .btn-pull:hover {
       background: #0d9488;
-      color: #fff
+      color: #fff;
+      box-shadow: 0 3px 12px rgba(13, 148, 136, 0.25)
     }
 
     .info-box {
-      background: #052e16;
+      background: linear-gradient(135deg, #052e16, #064e3b);
       border: 1px solid #166534;
       border-radius: 8px;
       padding: 12px 14px;
@@ -305,7 +341,7 @@
     }
 
     .warn-box {
-      background: #451a03;
+      background: linear-gradient(135deg, #451a03, #78350f);
       border: 1px solid #92400e;
       border-radius: 8px;
       padding: 12px 14px;
@@ -326,7 +362,9 @@
 
     input[type=range] {
       flex: 1;
-      accent-color: #0d9488
+      accent-color: #0d9488;
+      height: 6px;
+      cursor: pointer
     }
 
     .range-val {
@@ -334,27 +372,30 @@
       text-align: right;
       color: #0d9488;
       font-weight: 700;
-      font-size: 13px
+      font-size: 13px;
+      transition: color .2s
     }
 
     .saved-toast {
       position: fixed;
       bottom: 24px;
       left: 50%;
-      transform: translateX(-50%);
-      background: #0d9488;
+      transform: translateX(-50%) translateY(10px);
+      background: linear-gradient(135deg, #0d9488, #0f766e);
       color: #fff;
       padding: 10px 24px;
       border-radius: 8px;
       font-size: 12px;
       font-weight: 700;
       opacity: 0;
-      transition: opacity .3s;
-      pointer-events: none
+      transition: opacity .3s, transform .3s;
+      pointer-events: none;
+      box-shadow: 0 4px 16px rgba(13, 148, 136, 0.35)
     }
 
     .saved-toast.show {
-      opacity: 1
+      opacity: 1;
+      transform: translateX(-50%) translateY(0)
     }
 
     hr {
@@ -429,6 +470,13 @@
     <!-- INTERVENTION THRESHOLDS -->
     <div class="card">
       <h2>⏱ Intervention Thresholds</h2>
+      <div class="field" style="background:#0f1b2d;border:1px solid #2d4a7a;border-radius:8px;padding:14px;margin-bottom:16px">
+        <label style="color:#0d9488;font-size:13px">🛡️ Start interventions after <span class="range-val" id="startDelayVal">0</span> minutes of browsing</label>
+        <div class="range-row">
+          <input type="range" id="startDelay" min="0" max="60" value="0">
+        </div>
+        <div style="font-size:10px;color:#64748b;margin-top:6px">Free browsing time before any intervention kicks in. Set to 0 for immediate protection.</div>
+      </div>
       <div class="field">
         <label>Awareness phase starts after <span class="range-val" id="warnVal">10</span> minutes</label>
         <div class="range-row">

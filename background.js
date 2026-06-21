@@ -1,14 +1,15 @@
 // ═══════════════════════════════════════════════════════════
-// Dopamine De-escalator v2.1 — background.js (FIXED)
-// Fixes: AbortSignal polyfill, Ollama pull streaming, alarms
+// Dopamine De-escalator v2.1.1 — background.js (TIMER FIX)
+// Fixes: heartbeat SW lifecycle, alarm persistence, AbortSignal polyfill
 // ═══════════════════════════════════════════════════════════
 
 const DEFAULTS = {
-  features: { rewrite: true, grayscale: false, dopameter: true, fatigue: true, scrollFriction: true },
+  features: { rewrite: true, grayscale: true, dopameter: true, fatigue: true, scrollFriction: true, demoMode: false },
   settings: {
     ollamaEnabled: false,
     ollamaUrl: "http://127.0.0.1:11434",
     ollamaModel: "llama3.2",
+    startDelay: 0,
     thresholdWarn: 10,
     thresholdFriction: 20,
     interventionThreshold: 30,
@@ -23,14 +24,33 @@ const DEFAULTS = {
 let activeRewriteController = null;
 let activePullController = null;
 let lastOllamaFailureTime = 0;
-let sessionActiveTime = 0;
-let sessionVirtualTime = 0;
 
-// Load initial timer values from storage
-chrome.storage.sync.get(["sessionActiveTime", "sessionVirtualTime"], data => {
-  sessionActiveTime = data.sessionActiveTime || 0;
-  sessionVirtualTime = data.sessionVirtualTime || 0;
-});
+// ── Social Media URL Detection ─────────────────────────────
+// Used by the background timer to track time independently of content scripts
+const SOCIAL_MEDIA_DOMAINS = [
+  'x.com', 'twitter.com', 'reddit.com', 'instagram.com',
+  'youtube.com', 'facebook.com', 'tiktok.com'
+];
+
+const CONTENT_SCRIPT_URL_PATTERNS = [
+  "https://x.com/*", "https://reddit.com/*", "https://www.reddit.com/*",
+  "https://instagram.com/*", "https://www.instagram.com/*",
+  "https://youtube.com/*", "https://www.youtube.com/*",
+  "https://facebook.com/*", "https://www.facebook.com/*",
+  "https://tiktok.com/*", "https://www.tiktok.com/*"
+];
+
+function isSocialMediaUrl(url) {
+  if (!url) return false;
+  try {
+    const hostname = new URL(url).hostname.replace('www.', '');
+    return SOCIAL_MEDIA_DOMAINS.some(site => hostname.includes(site));
+  } catch { return false; }
+}
+
+// Tracks last content script heartbeat to avoid double-counting with alarm timer
+let lastHeartbeatTime = 0;
+
 
 // ── Declarative Net Request rules for Ollama CORS bypass ──
 async function setupOllamaRules() {
@@ -112,6 +132,11 @@ async function setupOllamaRules() {
 // Initialize rules on service worker load
 setupOllamaRules();
 
+// ── Background Timer Alarm ─────────────────────────────────
+// Creates a 30-second alarm that tracks time on social media sites
+// independently of content scripts. This is the RELIABLE fallback.
+chrome.alarms.create("timerTick", { periodInMinutes: 0.5 });
+
 // Update rules dynamically when storage settings change
 chrome.storage.onChanged.addListener((changes, area) => {
   if (area === "sync" && changes.settings) {
@@ -132,11 +157,9 @@ function makeSignal(ms) {
 async function checkDailyReset() {
   const today = new Date().toLocaleDateString('en-US');
   try {
-    const data = await chrome.storage.sync.get(["lastResetDate"]);
+    const data = await chrome.storage.local.get(["lastResetDate"]);
     if (data.lastResetDate !== today) {
-      sessionActiveTime = 0;
-      sessionVirtualTime = 0;
-      await chrome.storage.sync.set({
+      await chrome.storage.local.set({
         sessionData: DEFAULTS.sessionData,
         sessionActiveTime: 0,
         sessionVirtualTime: 0,
@@ -158,23 +181,112 @@ checkDailyReset();
 chrome.runtime.onInstalled.addListener(({ reason }) => {
   if (reason === "install") {
     const today = new Date().toLocaleDateString('en-US');
+
+    // Save settings and features to sync storage
     chrome.storage.sync.set({
-      ...DEFAULTS,
+      features: DEFAULTS.features,
+      settings: DEFAULTS.settings
+    });
+
+    // Save session data and timers to local storage
+    chrome.storage.local.set({
+      sessionData: DEFAULTS.sessionData,
       sessionActiveTime: 0,
       sessionVirtualTime: 0,
-      lastResetDate: today
+      lastResetDate: today,
+      ollamaStatus: DEFAULTS.ollamaStatus
     });
-    chrome.tabs.create({ url: chrome.runtime.getURL("settings.html") });
 
-    // Create alarm only on install
-    chrome.alarms.create("midnightReset", { periodInMinutes: 60 });
+    chrome.tabs.create({ url: chrome.runtime.getURL("settings.html") });
   }
+
+  // Re-inject content scripts on update (old scripts die when extension reloads)
+  if (reason === "update") {
+    chrome.tabs.query({ url: CONTENT_SCRIPT_URL_PATTERNS }, tabs => {
+      for (const tab of tabs) {
+        // Reset the guard flag so the script can re-initialize
+        chrome.scripting.executeScript({
+          target: { tabId: tab.id },
+          func: () => { window.__ddeLoaded = false; }
+        }).then(() => {
+          chrome.scripting.executeScript({
+            target: { tabId: tab.id },
+            files: ["content.js"]
+          });
+          chrome.scripting.insertCSS({
+            target: { tabId: tab.id },
+            files: ["content-styles.css"]
+          });
+        }).catch(() => { });
+      }
+      console.log(`DDE: Re-injected content scripts into ${tabs.length} tabs`);
+    });
+  }
+
+  // Always ensure alarms exist (install, update, or chrome_update)
+  chrome.alarms.get("midnightReset", alarm => {
+    if (!alarm) {
+      chrome.alarms.create("midnightReset", { periodInMinutes: 60 });
+      console.log("DDE: midnightReset alarm created on", reason);
+    }
+  });
+  chrome.alarms.create("timerTick", { periodInMinutes: 0.5 });
 });
 
-// ── Alarm: daily reset ────────────────────────────────────
+// ── Browser Startup Reset ─────────────────────────────────
+chrome.runtime.onStartup.addListener(() => {
+  console.log("DDE: Browser startup. Resetting timers.");
+  chrome.storage.local.set({
+    sessionActiveTime: 0,
+    sessionVirtualTime: 0
+  });
+  checkDailyReset();
+
+  // Ensure alarm survives browser restart
+  chrome.alarms.get("midnightReset", alarm => {
+    if (!alarm) {
+      chrome.alarms.create("midnightReset", { periodInMinutes: 60 });
+      console.log("DDE: midnightReset alarm re-created on startup");
+    }
+  });
+});
+
+// ── Alarm Handler ─────────────────────────────────────────
 chrome.alarms.onAlarm.addListener(alarm => {
   if (alarm.name === "midnightReset") {
     checkDailyReset();
+    return;
+  }
+
+  // ── Background Timer Tick (30-second interval) ──────────
+  // This is the RELIABLE timer that works even without content scripts.
+  // If content script heartbeats are active, we skip to avoid double-counting.
+  if (alarm.name === "timerTick") {
+    // Content script heartbeats provide 1-second granularity — use those if active
+    if (Date.now() - lastHeartbeatTime < 35000) return;
+
+    // Check if the active tab in the focused window is a social media site
+    chrome.tabs.query({ active: true, lastFocusedWindow: true }, async tabs => {
+      if (!tabs[0] || !isSocialMediaUrl(tabs[0].url)) return;
+
+      // Verify the window is actually focused (user isn't in another app)
+      try {
+        const win = await chrome.windows.get(tabs[0].windowId);
+        if (!win.focused) return;
+      } catch { return; }
+
+      // Increment timer by 30 seconds (the alarm interval)
+      chrome.storage.local.get(["sessionActiveTime", "sessionVirtualTime"], data => {
+        const newActive = (data.sessionActiveTime || 0) + 30;
+        const newVirtual = (data.sessionVirtualTime || 0) + 30;
+        chrome.storage.local.set({
+          sessionActiveTime: newActive,
+          sessionVirtualTime: newVirtual
+        });
+        console.log(`DDE: Background timer tick → ${newActive}s active`);
+      });
+    });
+    return;
   }
 });
 
@@ -186,9 +298,6 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo) => {
 
 // ── Message Router ─────────────────────────────────────────
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
-  // Guard message listener with daily reset check
-  checkDailyReset();
-
   if (msg.action === "rewritePost") {
     handleRewrite(msg.text, msg.hash)
       .then(result => sendResponse(result))
@@ -214,24 +323,37 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     return true;
   }
   if (msg.action === "heartbeat") {
-    sessionActiveTime++;
-    sessionVirtualTime += msg.scrolled ? 1 : 2.5;
+    // Track that content script is alive — background timer will yield to it
+    lastHeartbeatTime = Date.now();
 
-    // Save to storage every 5 seconds to reduce write frequency
-    if (sessionActiveTime % 5 === 0) {
-      chrome.storage.sync.set({ sessionActiveTime, sessionVirtualTime });
-    }
-    return false;
+    // return true + sendResponse to keep SW alive until storage write completes
+    chrome.storage.local.get(["sessionActiveTime", "sessionVirtualTime"], data => {
+      let active = data.sessionActiveTime || 0;
+      let virtual = data.sessionVirtualTime || 0;
+      active++;
+      virtual += msg.scrolled ? 1 : 2.5;
+      chrome.storage.local.set({
+        sessionActiveTime: active,
+        sessionVirtualTime: virtual
+      }, () => {
+        sendResponse({ ok: true, active, virtual });
+      });
+    });
+    return true;
   }
   if (msg.action === "getActiveTime") {
-    sendResponse({ sessionActiveTime, sessionVirtualTime });
+    chrome.storage.local.get(["sessionActiveTime", "sessionVirtualTime"], data => {
+      sendResponse({
+        sessionActiveTime: data.sessionActiveTime || 0,
+        sessionVirtualTime: data.sessionVirtualTime || 0
+      });
+    });
     return true;
   }
   if (msg.action === "resetActiveTime") {
-    sessionActiveTime = 0;
-    sessionVirtualTime = 0;
-    chrome.storage.sync.set({ sessionActiveTime: 0, sessionVirtualTime: 0 });
-    sendResponse({ success: true });
+    chrome.storage.local.set({ sessionActiveTime: 0, sessionVirtualTime: 0 }, () => {
+      sendResponse({ success: true });
+    });
     return true;
   }
 });
@@ -366,12 +488,12 @@ async function checkOllama(baseUrl, model) {
   try {
     const r = await fetch(`${url}/api/tags`, { signal: makeSignal(4000) });
     if (!r.ok) {
-      await chrome.storage.sync.set({ ollamaStatus: "error" });
+      await chrome.storage.local.set({ ollamaStatus: "error" });
       return { ok: false, error: "Ollama responded with error" };
     }
     const data = await r.json();
     const models = (data.models || []).map(m => m.name);
-    
+
     // Update cache
     availableModels = models;
 
@@ -394,10 +516,10 @@ async function checkOllama(baseUrl, model) {
       }
     }
 
-    await chrome.storage.sync.set({ ollamaStatus: "ok" });
+    await chrome.storage.local.set({ ollamaStatus: "ok" });
     return { ok: true, models, modelAvailable, autoSelectedModel: modelToUse };
   } catch (e) {
-    await chrome.storage.sync.set({ ollamaStatus: "error" });
+    await chrome.storage.local.set({ ollamaStatus: "error" });
     return { ok: false, error: "Ollama not running at " + url };
   }
 }

@@ -1,11 +1,11 @@
-/* Dopamine De-escalator v2 — injected feed styles */
+/* Dopamine De-escalator v2.1 — injected feed styles (Polished) */
 
 [data-rewritten="true"] {
-  animation: dde-fade 0.6s ease;
+  animation: dde-fade 0.8s ease;
 }
 @keyframes dde-fade {
-  0%   { background: rgba(16, 185, 129, 0.15); }
-  100% { background: transparent; }
+  0%   { background: rgba(16, 185, 129, 0.18); box-shadow: inset 0 0 0 1px rgba(16, 185, 129, 0.2); }
+  100% { background: transparent; box-shadow: inset 0 0 0 1px transparent; }
 }
 
 /* HUD bubble */
@@ -14,47 +14,98 @@
   bottom: 18px;
   right: 18px;
   z-index: 2147483647;
-  background: rgba(15, 27, 45, 0.92);
+  background: rgba(15, 27, 45, 0.94);
   color: #f8fafc;
-  padding: 6px 12px;
+  padding: 7px 14px;
   border-radius: 99px;
   font-size: 12px;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   font-weight: 600;
-  border: 1px solid #1e3154;
-  backdrop-filter: blur(6px);
+  border: 1px solid rgba(13, 148, 136, 0.3);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
   pointer-events: none;
   user-select: none;
-  transition: opacity 0.3s;
+  transition: opacity 0.3s, transform 0.3s;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3), 0 0 15px rgba(13, 148, 136, 0.1);
 }
-#dde-hud-icon { margin-right: 4px; color: #0d9488; }
+#dde-hud-icon {
+  margin-right: 4px;
+  color: #0d9488;
+  text-shadow: 0 0 8px rgba(13, 148, 136, 0.4);
+}
 
 /* Break prompt overlay */
 #dde-break {
   position: fixed;
   inset: 0;
   z-index: 2147483646;
-  background: rgba(0,0,0,0.6);
+  background: rgba(0, 0, 0, 0.65);
   display: flex;
   align-items: center;
   justify-content: center;
-  backdrop-filter: blur(4px);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  animation: dde-overlay-in 0.35s ease;
 }
+@keyframes dde-overlay-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
 #dde-break-box {
-  background: #0f1b2d;
-  border: 1px solid #0d9488;
-  border-radius: 16px;
-  padding: 36px 40px;
+  background: linear-gradient(145deg, #0f1b2d, #162540);
+  border: 1px solid rgba(13, 148, 136, 0.5);
+  border-radius: 20px;
+  padding: 40px 44px;
   text-align: center;
   color: #f8fafc;
-  max-width: 380px;
-  box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+  max-width: 400px;
+  box-shadow:
+    0 24px 80px rgba(0, 0, 0, 0.55),
+    0 0 40px rgba(13, 148, 136, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  animation: dde-box-in 0.4s cubic-bezier(0.4, 0, 0.2, 1);
 }
-#dde-break-box h2 { font-size: 20px; margin-bottom: 10px; }
-#dde-break-box p  { font-size: 14px; color: #94a3b8; }
+@keyframes dde-box-in {
+  from { transform: scale(0.92) translateY(20px); opacity: 0; }
+  to { transform: scale(1) translateY(0); opacity: 1; }
+}
+
+#dde-break-box h2 {
+  font-size: 20px;
+  margin-bottom: 10px;
+  font-weight: 700;
+}
+#dde-break-box p {
+  font-size: 14px;
+  color: #94a3b8;
+  line-height: 1.5;
+}
 #dde-break-yes, #dde-break-no {
-  padding: 10px 22px; border-radius: 8px; border: none;
-  font-size: 13px; font-weight: 600; cursor: pointer;
+  padding: 11px 24px;
+  border-radius: 10px;
+  border: none;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
 }
-#dde-break-yes { background: #0d9488; color: white; }
-#dde-break-no  { background: #1e3154; color: #94a3b8; }
+#dde-break-yes {
+  background: linear-gradient(135deg, #0d9488, #0f766e);
+  color: white;
+  box-shadow: 0 3px 12px rgba(13, 148, 136, 0.3);
+}
+#dde-break-yes:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 5px 18px rgba(13, 148, 136, 0.4);
+}
+#dde-break-no {
+  background: #1e3154;
+  color: #94a3b8;
+  border: 1px solid #2d4a7a;
+}
+#dde-break-no:hover {
+  border-color: #94a3b8;
+  color: #f8fafc;
+}

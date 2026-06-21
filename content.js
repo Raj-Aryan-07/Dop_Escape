@@ -1,7 +1,7 @@
 
 // ═══════════════════════════════════════════════════════════
-// Dopamine De-escalator v2.1 — content.js (FIXED)
-// Fixes: storage.onChanged listener, observerPaused usage
+// Dopamine De-escalator v2.1.1 — content.js (TIMER FIX)
+// Fixes: heartbeat focus issue, storage.onChanged, observerPaused
 // ═══════════════════════════════════════════════════════════
 
 (function () {
@@ -57,23 +57,29 @@
 
   // ── Boot ─────────────────────────────────────────────────
   async function init() {
-    const data = await getStorage(["features", "settings", "sessionActiveTime", "sessionVirtualTime"]);
-    if (data.features) features = data.features;
-    if (data.settings) settings = data.settings;
-    if (data.sessionActiveTime !== undefined) sessionActiveTime = data.sessionActiveTime;
-    if (data.sessionVirtualTime !== undefined) sessionVirtualTime = data.sessionVirtualTime;
+    const syncData = await getStorageSync(["features", "settings"]);
+    if (syncData.features) features = syncData.features;
+    if (syncData.settings) settings = syncData.settings;
+
+    const localData = await getStorageLocal(["sessionActiveTime", "sessionVirtualTime"]);
+    if (localData.sessionActiveTime !== undefined) sessionActiveTime = localData.sessionActiveTime;
+    if (localData.sessionVirtualTime !== undefined) sessionVirtualTime = localData.sessionVirtualTime;
 
     injectHUD();
     setupObserver();
-    setupStorageListener(); // FIX: Listen for settings changes
+    setupStorageListener();
 
     // Setup 1-second active heartbeat
+    // FIX: Only check visibilityState, NOT hasFocus(). The extension popup steals
+    // focus from the active tab — using hasFocus() here caused the timer to freeze
+    // whenever the popup was open. visibilityState === "visible" is sufficient since
+    // the tab remains visible behind the popup.
     setInterval(() => {
-      if (document.visibilityState === "visible" && document.hasFocus()) {
+      if (document.visibilityState === "visible") {
         chrome.runtime.sendMessage({
           action: "heartbeat",
           scrolled: scrolledInLastSecond
-        }).catch(() => {});
+        }).catch(() => { });
         scrolledInLastSecond = false;
       }
     }, 1000);
@@ -90,25 +96,43 @@
     chrome.runtime.onMessage.addListener(onMessage);
   }
 
-  // ── Storage helper ────────────────────────────────────────
-  function getStorage(keys) {
+  // ── Storage helpers ───────────────────────────────────────
+  function getStorageSync(keys) {
     return new Promise(r => chrome.storage.sync.get(keys, r));
   }
+  function getStorageLocal(keys) {
+    return new Promise(r => chrome.storage.local.get(keys, r));
+  }
 
-  // ── FIX: Storage change listener ──────────────────────────
+  // ── Storage change listener ──────────────────────────────
   function setupStorageListener() {
     chrome.storage.onChanged.addListener((changes, area) => {
-      if (area !== "sync") return;
-      if (changes.settings) {
-        const newSettings = changes.settings.newValue;
-        if (newSettings) {
-          settings = { ...settings, ...newSettings };
+      if (area === "sync") {
+        if (changes.settings) {
+          const newSettings = changes.settings.newValue;
+          if (newSettings) {
+            settings = { ...settings, ...newSettings };
+          }
+        }
+        if (changes.features) {
+          const newFeatures = changes.features.newValue;
+          if (newFeatures) {
+            features = { ...features, ...newFeatures };
+            if (newFeatures.grayscale === false) {
+              applyGrayscale(0);
+            }
+            if (newFeatures.scrollFriction === false) {
+              setFriction(0);
+            }
+          }
         }
       }
-      if (changes.features) {
-        const newFeatures = changes.features.newValue;
-        if (newFeatures) {
-          features = { ...features, ...newFeatures };
+      if (area === "local") {
+        if (changes.sessionActiveTime) {
+          sessionActiveTime = changes.sessionActiveTime.newValue || 0;
+        }
+        if (changes.sessionVirtualTime) {
+          sessionVirtualTime = changes.sessionVirtualTime.newValue || 0;
         }
       }
     });
@@ -272,7 +296,7 @@
     const duration = sessionActiveTime / 60;
     const fatigue = duration > 20 ? Math.min(100, Math.round((duration / 20) * 50)) : 0;
     const avg = allScores.length ? Math.round(allScores.reduce((a, b) => a + b, 0) / allScores.length) : 0;
-    chrome.storage.sync.set({
+    chrome.storage.local.set({
       sessionData: {
         postsRewritten,
         avgDopamineReduction: Math.round(postsRewritten * 1.8),
@@ -305,12 +329,9 @@
   function startSessionLoop() {
     setInterval(async () => {
       // Fetch latest accumulated timer values from storage
-      const data = await getStorage(["sessionActiveTime", "sessionVirtualTime"]);
+      const data = await getStorageLocal(["sessionActiveTime", "sessionVirtualTime"]);
       if (data.sessionActiveTime !== undefined) sessionActiveTime = data.sessionActiveTime;
       if (data.sessionVirtualTime !== undefined) sessionVirtualTime = data.sessionVirtualTime;
-
-      const activeMinutes = Math.floor(sessionActiveTime / 60);
-      const virtualMinutes = Math.floor(sessionVirtualTime / 60);
 
       const isVisible = document.visibilityState === "visible" && document.hasFocus();
       if (isVisible) {
@@ -325,21 +346,43 @@
       scrollDistance = 0;
 
       // Use settings for thresholds
+      const startDelay = settings.startDelay !== undefined ? settings.startDelay : 0;
       const threshWarn = settings.thresholdWarn !== undefined ? settings.thresholdWarn : 10;
       const threshFriction = settings.thresholdFriction !== undefined ? settings.thresholdFriction : 20;
       const threshFull = settings.interventionThreshold !== undefined ? settings.interventionThreshold : 30;
       const frictionStrength = settings.frictionStrength !== undefined ? settings.frictionStrength : 40;
 
+      let warnTriggered = false;
+      let frictionTriggered = false;
+      let fullTriggered = false;
+
+      if (features.demoMode) {
+        // Thresholds are in seconds, startDelay is also treated as seconds in demo mode
+        const delayValue = startDelay;
+        warnTriggered = sessionVirtualTime >= (threshWarn + delayValue);
+        frictionTriggered = sessionActiveTime >= (threshFriction + delayValue);
+        fullTriggered = sessionActiveTime >= (threshFull + delayValue);
+      } else {
+        // Thresholds are in minutes
+        const activeMinutes = Math.floor(sessionActiveTime / 60);
+        const virtualMinutes = Math.floor(sessionVirtualTime / 60);
+        warnTriggered = virtualMinutes >= (threshWarn + startDelay);
+        frictionTriggered = activeMinutes >= (threshFriction + startDelay);
+        fullTriggered = activeMinutes >= (threshFull + startDelay);
+      }
+
       if (features.grayscale) {
-        const level = virtualMinutes >= threshFull ? 100 : virtualMinutes >= threshFriction ? 60 : virtualMinutes >= threshWarn ? 30 : 0;
+        const level = fullTriggered ? 100 : frictionTriggered ? 60 : warnTriggered ? 30 : 0;
         applyGrayscale(level);
+      } else {
+        applyGrayscale(0);
       }
 
       if (features.scrollFriction) {
         let friction = 0;
-        if (activeMinutes >= threshFull) {
+        if (fullTriggered) {
           friction = Math.min(0.95, (frictionStrength * 1.375) / 100); // e.g., 55% for 40% strength
-        } else if (activeMinutes >= threshFriction) {
+        } else if (frictionTriggered) {
           friction = Math.min(0.95, (frictionStrength * 0.875) / 100); // e.g., 35% for 40% strength
         }
 
@@ -356,9 +399,13 @@
         setFriction(0);
       }
 
-      if (activeMinutes >= threshFull && activeMinutes % 10 === 0) maybeBreakPrompt(activeMinutes);
+      if (fullTriggered) {
+        const timeText = features.demoMode ? sessionActiveTime : Math.floor(sessionActiveTime / 60);
+        maybeBreakPrompt(timeText, features.demoMode);
+      }
 
-      updateHUD(virtualMinutes, allScores.length ? Math.round(allScores.reduce((a, b) => a + b, 0) / allScores.length) : 0);
+      const displayMinutes = features.demoMode ? sessionVirtualTime : Math.floor(sessionVirtualTime / 60);
+      updateHUD(displayMinutes, allScores.length ? Math.round(allScores.reduce((a, b) => a + b, 0) / allScores.length) : 0);
     }, 8000);
   }
 
@@ -366,10 +413,10 @@
   function applyGrayscale(pct) {
     if (pct === grayscaleLevel) return;
     grayscaleLevel = pct;
-    const feed = document.querySelector(FEED_SELECTORS[site] || "body");
-    if (!feed) return;
-    feed.style.transition = "filter 2s ease";
-    feed.style.filter = pct > 0 ? `grayscale(${pct}%)` : "";
+    const target = document.documentElement || document.body;
+    if (!target) return;
+    target.style.transition = "filter 2s ease";
+    target.style.filter = pct > 0 ? `grayscale(${pct}%)` : "";
   }
 
   // Helper to find the nearest scrollable ancestor in the vertical direction
@@ -427,15 +474,24 @@
 
   // ── Break prompt ──────────────────────────────────────────
   let lastPrompt = 0;
-  function maybeBreakPrompt(minutes) {
-    if (Date.now() - lastPrompt < 9 * 60 * 1000) return;
+  let promptCount = 0; // Tracks how many times the user clicked "Keep scrolling"
+  function maybeBreakPrompt(timeVal, isDemo) {
+    // Progressive backoff: base cooldown is 15s (demo) or 9m (prod).
+    // Each ignore multiplies the cooldown (1x, 1.5x, 2x, 2.5x...)
+    const baseCooldownMs = (isDemo ? 15 : 9 * 60) * 1000;
+    const cooldownMultiplier = 1 + (promptCount * 0.5);
+    const requiredCooldown = baseCooldownMs * cooldownMultiplier;
+
+    if (Date.now() - lastPrompt < requiredCooldown) return;
     lastPrompt = Date.now();
+
     const el = document.createElement("div");
     el.id = "dde-break";
+    const timeUnit = isDemo ? "seconds" : "minutes";
     el.innerHTML = `
       <div id="dde-break-box">
         <div style="font-size:32px;margin-bottom:8px">⬡</div>
-        <h2>You've been scrolling ${minutes} minutes</h2>
+        <h2>You've been scrolling ${timeVal} ${timeUnit}</h2>
         <p>Your brain would appreciate a break right now.</p>
         <div style="display:flex;gap:12px;justify-content:center;margin-top:18px">
           <button id="dde-break-yes">Take a break</button>
@@ -447,9 +503,13 @@
       el.remove();
       sessionActiveTime = 0;
       sessionVirtualTime = 0;
-      chrome.runtime.sendMessage({ action: "resetActiveTime" }).catch(() => {});
+      promptCount = 0; // Reset backoff on break
+      chrome.runtime.sendMessage({ action: "resetActiveTime" }).catch(() => { });
     };
-    document.getElementById("dde-break-no").onclick = () => el.remove();
+    document.getElementById("dde-break-no").onclick = () => {
+      el.remove();
+      promptCount++; // Increase backoff for next prompt
+    };
   }
 
   // ── MutationObserver ──────────────────────────────────────

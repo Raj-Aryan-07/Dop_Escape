@@ -1,6 +1,6 @@
 // ═══════════════════════════════════════════════════════════
-// Dopamine De-escalator v2.1 — popup.js (FIXED)
-// Fix: lastError check in checkOllamaStatus callback
+// Dopamine De-escalator v2.1.1 — popup.js (TIMER FIX)
+// Fix: storage-based timer, reactive updates, lastError checks
 // ═══════════════════════════════════════════════════════════
 
 function $(id) { return document.getElementById(id); }
@@ -18,15 +18,16 @@ function toast(msg, color = "#0d9488") {
 
 const Exporter = {
   async getData() {
-    const data = await getStorage(["sessionData", "settings", "ollamaStatus"]);
+    const syncData = await getStorage(["settings"]);
+    const localData = await new Promise(r => chrome.storage.local.get(["sessionData", "ollamaStatus"], r));
     return {
       exportDate: new Date().toISOString(),
       extension: "Dopamine De-escalator",
       version: "2.1.0",
-      aiEngine: data.settings?.ollamaEnabled ? `Ollama (${data.settings.ollamaModel})` : "Rule-based fallback",
-      ollamaStatus: data.ollamaStatus || "unchecked",
-      metrics: data.sessionData || {},
-      settings: data.settings || {},
+      aiEngine: syncData.settings?.ollamaEnabled ? `Ollama (${syncData.settings.ollamaModel})` : "Rule-based fallback",
+      ollamaStatus: localData.ollamaStatus || "unchecked",
+      metrics: localData.sessionData || {},
+      settings: syncData.settings || {},
     };
   },
 
@@ -133,18 +134,18 @@ class PopupManager {
   }
 
   setupToggles() {
-    ["rewrite","grayscale","dopameter","fatigue","scrollFriction"].forEach(feat => {
+    ["rewrite", "grayscale", "dopameter", "fatigue", "scrollFriction", "demoMode"].forEach(feat => {
       $(`${feat}Toggle`)?.addEventListener("change", e => this.toggleFeature(feat, e.target.checked));
     });
   }
 
   setupExports() {
     $("exportJSON")?.addEventListener("click", () => Exporter.json());
-    $("exportCSV")?.addEventListener("click",  () => Exporter.csv());
+    $("exportCSV")?.addEventListener("click", () => Exporter.csv());
     $("exportHTML")?.addEventListener("click", () => Exporter.html());
-    $("exportXML")?.addEventListener("click",  () => Exporter.xml());
-    $("exportTXT")?.addEventListener("click",  () => Exporter.txt());
-    $("exportPDF")?.addEventListener("click",  () => Exporter.pdf());
+    $("exportXML")?.addEventListener("click", () => Exporter.xml());
+    $("exportTXT")?.addEventListener("click", () => Exporter.txt());
+    $("exportPDF")?.addEventListener("click", () => Exporter.pdf());
   }
 
   setupActions() {
@@ -156,14 +157,15 @@ class PopupManager {
 
     $("resetStats")?.addEventListener("click", () => {
       if (confirm("Reset all statistics?")) {
-        chrome.storage.sync.set({
+        chrome.storage.local.set({
           sessionData: { postsRewritten: 0, avgDopamineReduction: 0, fatigueLevel: 0, originalScore: 0, currentScore: 0 },
           sessionActiveTime: 0,
           sessionVirtualTime: 0
+        }, () => {
+          chrome.runtime.sendMessage({ action: "resetActiveTime" });
+          this.refreshUI();
+          toast("Stats reset");
         });
-        chrome.runtime.sendMessage({ action: "resetActiveTime" });
-        this.refreshUI();
-        toast("Stats reset");
       }
     });
   }
@@ -172,7 +174,7 @@ class PopupManager {
     getStorage(["features"]).then(data => {
       if (!data.features) return;
       const f = data.features;
-      ["rewrite","grayscale","dopameter","fatigue","scrollFriction"].forEach(feat => {
+      ["rewrite", "grayscale", "dopameter", "fatigue", "scrollFriction", "demoMode"].forEach(feat => {
         const el = $(`${feat}Toggle`);
         if (el && f[feat] !== undefined) el.checked = f[feat];
       });
@@ -186,14 +188,14 @@ class PopupManager {
       setStorage({ features });
       chrome.tabs.query({ active: true, currentWindow: true }, tabs => {
         if (tabs[0]) {
-          chrome.tabs.sendMessage(tabs[0].id, { action: "toggleFeature", feature, enabled }).catch(() => {});
+          chrome.tabs.sendMessage(tabs[0].id, { action: "toggleFeature", feature, enabled }).catch(() => { });
         }
       });
     });
   }
 
   refreshUI() {
-    getStorage(["sessionData"]).then(data => {
+    chrome.storage.local.get(["sessionData"], data => {
       const s = data.sessionData || {};
       $("postsRewritten").textContent = s.postsRewritten || 0;
       $("avgDopamineReduction").textContent = (s.avgDopamineReduction || 0) + "%";
@@ -210,55 +212,68 @@ class PopupManager {
   }
 
   startTimer() {
-    const tick = () => {
-      chrome.runtime.sendMessage({ action: "getActiveTime" }, res => {
-        if (chrome.runtime.lastError || !res) return;
-        const elapsed = res.sessionActiveTime || 0;
-        const h = Math.floor(elapsed / 3600);
-        const m = Math.floor((elapsed % 3600) / 60);
-        const s = elapsed % 60;
-        $("sessionTime").textContent =
-          `${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}:${String(s).padStart(2,"0")}`;
+    const updateDisplay = (elapsed) => {
+      const h = Math.floor(elapsed / 3600);
+      const m = Math.floor((elapsed % 3600) / 60);
+      const s = elapsed % 60;
+      $("sessionTime").textContent =
+        `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+    };
+
+    const readFromStorage = () => {
+      chrome.storage.local.get(["sessionActiveTime"], data => {
+        updateDisplay(data.sessionActiveTime || 0);
       });
     };
-    tick();
-    setInterval(tick, 1000);
+
+    // Reactive: update instantly when storage changes (heartbeat writes)
+    chrome.storage.onChanged.addListener((changes, area) => {
+      if (area === "local" && changes.sessionActiveTime) {
+        updateDisplay(changes.sessionActiveTime.newValue || 0);
+      }
+    });
+
+    // Initial read + fallback poll every 2s
+    readFromStorage();
+    setInterval(readFromStorage, 2000);
   }
 
   checkOllamaStatus() {
-    getStorage(["settings", "ollamaStatus"]).then(data => {
-      const cfg = data.settings || {};
-      const st = $("ollamaStatus");
-      const eng = $("engineLabel");
+    getStorage(["settings"]).then(syncData => {
+      chrome.storage.local.get(["ollamaStatus"], localData => {
+        const cfg = syncData.settings || {};
+        const st = $("ollamaStatus");
+        const eng = $("engineLabel");
 
-      if (!cfg.ollamaEnabled) {
-        st.className = "badge-grey"; st.textContent = "Not enabled";
-        eng.textContent = "Rule-based (fallback)";
-        return;
-      }
-
-      eng.textContent = `Ollama · ${cfg.ollamaModel || "llama3.2"}`;
-
-      // FIX: Add lastError check in callback
-      chrome.runtime.sendMessage(
-        { action: "checkOllama", url: cfg.ollamaUrl, model: cfg.ollamaModel },
-        res => {
-          // FIX: Check for service worker errors
-          if (chrome.runtime.lastError) {
-            st.className = "badge-err"; st.textContent = "SW error";
-            eng.textContent = "Rule-based (SW unavailable)";
-            return;
-          }
-
-          if (res && res.ok) {
-            st.className = "badge-ok"; st.textContent = "Connected ✓";
-            eng.textContent = `Ollama · ${cfg.ollamaModel} ✓`;
-          } else {
-            st.className = "badge-err"; st.textContent = "Not running";
-            eng.textContent = "Rule-based (Ollama offline)";
-          }
+        if (!cfg.ollamaEnabled) {
+          st.className = "badge-grey"; st.textContent = "Not enabled";
+          eng.textContent = "Rule-based (fallback)";
+          return;
         }
-      );
+
+        eng.textContent = `Ollama · ${cfg.ollamaModel || "llama3.2"}`;
+
+        // FIX: Add lastError check in callback
+        chrome.runtime.sendMessage(
+          { action: "checkOllama", url: cfg.ollamaUrl, model: cfg.ollamaModel },
+          res => {
+            // FIX: Check for service worker errors
+            if (chrome.runtime.lastError) {
+              st.className = "badge-err"; st.textContent = "SW error";
+              eng.textContent = "Rule-based (SW unavailable)";
+              return;
+            }
+
+            if (res && res.ok) {
+              st.className = "badge-ok"; st.textContent = "Connected ✓";
+              eng.textContent = `Ollama · ${cfg.ollamaModel} ✓`;
+            } else {
+              st.className = "badge-err"; st.textContent = "Not running";
+              eng.textContent = "Rule-based (Ollama offline)";
+            }
+          }
+        );
+      });
     });
   }
 }

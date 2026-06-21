@@ -27,6 +27,7 @@ function bindRange(sliderId, labelId) {
 document.addEventListener("DOMContentLoaded", function () {
 
   // Bind all range sliders
+  bindRange("startDelay", "startDelayVal");
   bindRange("threshWarn", "warnVal");
   bindRange("threshFriction", "frictionVal");
   bindRange("threshFull", "fullVal");
@@ -49,6 +50,10 @@ document.addEventListener("DOMContentLoaded", function () {
     if (s.ollamaEnabled !== undefined) $("ollamaEnabled").checked = s.ollamaEnabled;
     if (s.ollamaUrl) $("ollamaUrl").value = s.ollamaUrl;
     if (s.ollamaModel) $("ollamaModel").value = s.ollamaModel;
+    if (s.startDelay !== undefined) {
+      $("startDelay").value = s.startDelay;
+      $("startDelayVal").textContent = s.startDelay;
+    }
     if (s.thresholdWarn) {
       $("threshWarn").value = s.thresholdWarn;
       $("warnVal").textContent = s.thresholdWarn;
@@ -177,6 +182,7 @@ document.addEventListener("DOMContentLoaded", function () {
       ollamaEnabled: $("ollamaEnabled").checked,
       ollamaUrl: $("ollamaUrl").value.trim(),
       ollamaModel: $("ollamaModel").value.trim(),
+      startDelay: parseInt($("startDelay").value) || 0,
       thresholdWarn: parseInt($("threshWarn").value) || 10,
       thresholdFriction: parseInt($("threshFriction").value) || 20,
       interventionThreshold: parseInt($("threshFull").value) || 30,

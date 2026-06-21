@@ -1,4 +1,4 @@
-# ⬡ Dopamine De-escalator v2.0
+# ⬡ Dopamine De-escalator v3.0.0
 
 > AI-powered browser extension that transforms addictive social media into a calmer, lower-stimulation experience.
 
@@ -128,9 +128,9 @@ Only informed decisions.
 
 ---
 
-# ✨ What's New in v2.0
+# ✨ What's New in v3.0.0
 
-| Feature               | v1              | v2                      |
+| Feature               | v1              | v3.0.0 (Current)        |
 | --------------------- | --------------- | ----------------------- |
 | AI Rewriting          | Rule-based only | ✅ Ollama LLM + fallback |
 | Scroll Friction       | ❌               | ✅                       |
@@ -138,10 +138,16 @@ Only informed decisions.
 | Settings Page         | ❌               | ✅                       |
 | Ollama Model Picker   | ❌               | ✅                       |
 | Dashboard Analytics   | ❌               | ✅                       |
-| Break Prompts         | ❌               | ✅                       |
-| Progressive Grayscale | ❌               | ✅                       |
+| Break Prompts         | ❌               | ✅ (With progressive cooldown backoff) |
+| Progressive Grayscale | ❌               | ✅ (Universal target & enabled by default) |
 | Fatigue Detection     | ❌               | ✅                       |
 | Offline AI            | ❌               | ✅                       |
+| **Demo Mode**         | ❌               | **✅ (Treats mins as secs & supports delay)** |
+| **Local Storage Sync**| ❌ (Sync quotas) | **✅ (Zero quota errors)**  |
+| **Browser Startup Reset** | ❌            | **✅ (Timer resets on start)**|
+| **Live Deactivation** | ❌              | **✅ (Immediate style revert)** |
+| **Grace Period (Start Delay)** | ❌      | **✅ (Configurable startup delay before interventions)** |
+| **MV3 CSP Compliance** | ❌              | **✅ (Separated inline scripts in dashboard.js)** |
 
 ---
 
@@ -161,10 +167,28 @@ chrome://extensions/
 5. Select:
 
 ```text
-DopEscape-v2
+DopEscape-FIXED
 ```
 
 6. Pin the extension
+
+---
+
+# 🧪 Testing & Demo Mode (Fast Timers)
+
+By default, the de-escalation levels (grayscale and scroll friction) trigger after 10–30 minutes of scrolling. To test the extension immediately without waiting:
+
+1. Click the **Dopamine De-escalator** extension icon in your toolbar.
+2. Ensure **Grayscale mode**, **Scroll friction**, and **Demo Mode (Fast Timers)** are enabled.
+3. Open any supported social media site (e.g., [x.com](https://x.com) or [youtube.com](https://youtube.com)) and interact with the page.
+4. Watch the progress in the popup or HUD:
+   * **At 10 seconds:** The Warning phase triggers (30% grayscale is applied to the feed).
+   * **At 20 seconds:** The Friction phase triggers (60% grayscale + scroll slowdown is applied).
+   * **At 30 seconds:** The Full intervention phase triggers (100% grayscale + **Take a Break** popup modal appears).
+   
+   *(Note: If a **Start Delay** is configured in Settings, the thresholds above will start after that grace period. For example, if Start Delay is set to 5 minutes, in Demo Mode the phases will trigger at 15s, 25s, and 35s respectively.)*
+5. Toggle Grayscale or Scroll Friction off in the popup to see them instantly deactivated.
+6. Close and reopen your browser to verify that the active session timer resets to `00:00:00`.
 
 ---
 
@@ -182,57 +206,132 @@ Benefits:
 
 ---
 
-## Step 1 — Install Ollama
-
-### macOS / Linux
-
-```bash
-curl -fsSL https://ollama.com/install.sh | sh
-```
-
-### Windows
-
-Download from:
-
-```text
-https://ollama.com
-```
+## Step 1 — Install & Configure Ollama (Select Your OS)
 
 ---
 
-## Step 2 — Enable Browser Access
+### 💻 Windows Setup
 
-```bash
-OLLAMA_ORIGINS="chrome-extension://*" ollama serve
-```
+#### 1. Install Ollama
+- Download the installer from the official website: [ollama.com](https://ollama.com).
+- Run the executable to complete the installation.
 
-Make permanent:
+#### 2. Enable Browser Access (`OLLAMA_ORIGINS`)
+To allow the browser extension to interact with your local Ollama instance, configure the origins environment variable:
+- **Temporary (Command Line)**:
+  1. Close the Ollama app from your Windows system tray (right-click the tray icon and choose **Quit Ollama**).
+  2. Open Command Prompt or PowerShell and run:
+     - **Command Prompt**:
+       ```cmd
+       set OLLAMA_ORIGINS=chrome-extension://*
+       ollama serve
+       ```
+     - **PowerShell**:
+       ```powershell
+       $env:OLLAMA_ORIGINS="chrome-extension://*"
+       ollama serve
+       ```
+- **Permanent (System Settings)**:
+  1. Close Ollama from the system tray.
+  2. Search for **Environment Variables** in the Windows search bar and choose **Edit the system environment variables**.
+  3. Under *System Variables*, click **New...**.
+  4. Set **Variable name** to `OLLAMA_ORIGINS` and **Variable value** to `chrome-extension://*`.
+  5. Click **OK**, then restart the Ollama application.
 
-```bash
-export OLLAMA_ORIGINS="chrome-extension://*"
-```
+#### 3. Pull a Verified Model
+Open a new Command Prompt or PowerShell window and run one of the verified working models:
+- **Llama 3.2 (3B) — verified working**:
+  ```bash
+  ollama pull llama3.2:3b
+  ```
+  or:
+  ```bash
+  ollama pull llama3.2:latest
+  ```
 
 ---
 
-## Step 3 — Pull a Model
+### 🍎 macOS Setup
 
-### Recommended
+#### 1. Install Ollama
+- Download the macOS zip file from [ollama.com](https://ollama.com).
+- Extract the file and drag the **Ollama** app into your `Applications` folder.
 
-```bash
-ollama pull llama3.2
-```
+#### 2. Enable Browser Access (`OLLAMA_ORIGINS`)
+To allow the browser extension to interact with your local Ollama instance:
+- **Temporary (Terminal)**:
+  1. Quit the Ollama GUI app (`Cmd + Q`).
+  2. Open Terminal and run:
+     ```bash
+     OLLAMA_ORIGINS="chrome-extension://*" ollama serve
+     ```
+- **Permanent (Zsh Profile)**:
+  1. Add the variable to your terminal configuration so it applies automatically on launches:
+     ```bash
+     echo 'launchctl setenv OLLAMA_ORIGINS "chrome-extension://*"' >> ~/.zshrc
+     source ~/.zshrc
+     ```
+  2. Restart the Ollama application.
 
-### Fastest
+#### 3. Pull a Verified Model
+Open a Terminal window and run one of the verified working models:
+- **Llama 3.2 (3B) — verified working**:
+  ```bash
+  ollama pull llama3.2:3b
+  ```
+  or:
+  ```bash
+  ollama pull llama3.2:latest
+  ```
 
-```bash
-ollama pull phi4-mini
-```
+---
 
-### Balanced
+### 🐧 Ubuntu / Linux Setup
 
-```bash
-ollama pull mistral
-```
+#### 1. Install Ollama
+- Open your terminal and run:
+  ```bash
+  curl -fsSL https://ollama.com/install.sh | sh
+  ```
+
+#### 2. Enable Browser Access (`OLLAMA_ORIGINS`)
+To allow the browser extension to interact with your local Ollama instance:
+- **Permanent (Systemd - Recommended)**:
+  1. Open the systemd configuration editor for Ollama:
+     ```bash
+     sudo systemctl edit ollama.service
+     ```
+  2. Add the environment setting under the `[Service]` section:
+     ```ini
+     [Service]
+     Environment="OLLAMA_ORIGINS=chrome-extension://*"
+     ```
+  3. Save the file and exit the editor.
+  4. Reload systemd configurations and restart the Ollama service:
+     ```bash
+     sudo systemctl daemon-reload
+     sudo systemctl restart ollama
+     ```
+- **Temporary (Manual)**:
+  1. Stop the running systemd service:
+     ```bash
+     sudo systemctl stop ollama
+     ```
+  2. Run the server manually with origins set:
+     ```bash
+     OLLAMA_ORIGINS="chrome-extension://*" ollama serve
+     ```
+
+#### 3. Pull a Verified Model
+Open a new Terminal window and run one of the verified working models:
+- **Llama 3.2 (3B) — verified working**:
+  ```bash
+  ollama pull llama3.2:3b
+  ```
+  or:
+  ```bash
+  ollama pull llama3.2:latest
+  ```
 
 ---
 
@@ -300,6 +399,8 @@ Future:
 ---
 
 # 🕐 Intervention Timeline
+
+*(Note: All intervention phases begin after the user-configured **Start Delay** grace period is completed)*
 
 | Session Time | Phase         | Behavior                            |
 | ------------ | ------------- | ----------------------------------- |
@@ -430,7 +531,7 @@ content.js
 # 📁 Project Structure
 
 ```text
-DopEscape-v2/
+DopEscape-FIXED/
 │
 ├── manifest.json
 │
@@ -462,13 +563,14 @@ DopEscape-v2/
 
 # 🗺 Roadmap
 
-## v2.1
+## v3.1.0
 
+* Expand local AI model options (e.g., support for Qwen 9B int4 quantized) for higher quality offline rewrites
 * Better rewrite quality
 * More social platforms
 * Improved dopamine scoring
 
-## v3.0
+## v4.0.0
 
 * Personalized intervention engine
 * AI-generated break recommendations
@@ -523,11 +625,11 @@ Inspired by research in:
 
 ---
 
-## ⬡ Dopamine De-escalator v2.0
+## ⬡ Dopamine De-escalator v3.0.0
 
 **Local AI • Digital Wellbeing • Privacy First**
 
-### Concept by Team somehackathon
+### Concept by Team somehackathon{Raj Aryan, Ayaan Mustafa , Parth Tomar}
 
 ### Engineered by Raj Aryan
 
